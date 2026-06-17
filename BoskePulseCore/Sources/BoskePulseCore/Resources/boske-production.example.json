@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "privateNetwork": "example-net",
+  "privateNetworkCIDR": "10.99.0.0/16",
+  "appGroupIdentifier": "group.eu.canopystudio.boske.pulse",
+  "servers": [
+    {
+      "id": "example-website",
+      "name": "example-website",
+      "role": "Coolify — website, leases, Stripe",
+      "hetznerServerName": "example-website",
+      "publicIPv4": "203.0.113.20",
+      "privateIP": "10.99.0.3",
+      "region": "hel1",
+      "coolifyManaged": true,
+      "publicEndpoints": [
+        { "id": "website", "label": "example.dev", "url": "https://example.dev/", "expectStatus": 200 },
+        { "id": "app", "label": "app.example.dev", "url": "https://app.example.dev/api/health", "expectStatus": 200 }
+      ],
+      "links": {
+        "hetzner": "https://console.hetzner.cloud/",
+        "ssh": "ssh deploy@203.0.113.20"
+      }
+    },
+    {
+      "id": "example-data-01",
+      "name": "example-data-01",
+      "role": "Licensing PG + data stack",
+      "hetznerServerName": "example-data-01",
+      "publicIPv4": "203.0.113.32",
+      "privateIP": "10.99.0.2",
+      "region": "hel1",
+      "coolifyManaged": true,
+      "privateProbes": [
+        { "id": "licensing-pg", "label": "Postgres", "host": "10.99.0.2", "port": 5433 }
+      ],
+      "links": {
+        "hetzner": "https://console.hetzner.cloud/",
+        "ssh": "ssh deploy@203.0.113.32"
+      }
+    },
+    {
+      "id": "example-search-01",
+      "name": "example-search-01",
+      "role": "SearXNG + Valkey + Caddy",
+      "hetznerServerName": "example-search-01",
+      "publicIPv4": "203.0.113.34",
+      "privateIP": "10.99.0.4",
+      "region": "nbg1",
+      "coolifyManaged": true,
+      "publicEndpoints": [
+        { "id": "search", "label": "search.example.dev", "url": "https://search.example.dev/", "expectStatus": 200 }
+      ],
+      "links": {
+        "hetzner": "https://console.hetzner.cloud/",
+        "ssh": "ssh deploy@203.0.113.34"
+      }
+    },
+    {
+      "id": "example-llm-01",
+      "name": "example-llm-01",
+      "role": "LLM proxy + Caddy",
+      "hetznerServerName": "example-llm-01",
+      "publicIPv4": "203.0.113.31",
+      "privateIP": "10.99.0.5",
+      "region": "fsn1",
+      "coolifyManaged": true,
+      "publicEndpoints": [
+        {
+          "id": "llm-healthz",
+          "label": "llm.example.dev",
+          "url": "https://llm.example.dev/healthz",
+          "expectStatus": 200,
+          "expectBodyContains": "\"ok\":true"
+        }
+      ],
+      "links": {
+        "hetzner": "https://console.hetzner.cloud/",
+        "ssh": "ssh deploy@203.0.113.31"
+      }
+    }
+  ],
+  "coolify": {
+    "dashboardPath": "/",
+    "apiPath": "/api/v1"
+  },
+  "alerts": {
+    "debounceSeconds": 300,
+    "flapIgnoreSeconds": 120,
+    "telegramEnabled": true
+  },
+  "polling": {
+    "publicHealthSeconds": 30,
+    "coolifySeconds": 60,
+    "hetznerSeconds": 120,
+    "privateProbeSeconds": 60
+  }
+}

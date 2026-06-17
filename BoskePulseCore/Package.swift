@@ -12,7 +12,10 @@ let package = Package(
     targets: [
         .target(
             name: "BoskePulseCore",
-            path: "Sources/BoskePulseCore"
+            path: "Sources/BoskePulseCore",
+            resources: [
+                .process("Resources"),
+            ]
         ),
         .testTarget(
             name: "BoskePulseCoreTests",
