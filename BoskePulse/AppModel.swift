@@ -55,15 +55,20 @@ final class AppModel: ObservableObject {
     func loadConfig() {
         configError = nil
         guard let url = ConfigLoader.defaultConfigURL(bundle: .main) else {
-            configError = "Config not found — run: make setup"
+            configError = "Config not found — run make setup from the repo root, then rebuild in Xcode"
             return
         }
         do {
             config = try ConfigLoader.load(from: url)
+            configError = nil
             rebuildEngine()
         } catch {
-            configError = error.localizedDescription
+            configError = "Config error: \(error.localizedDescription)"
         }
+    }
+
+    func reloadConfig() {
+        loadConfig()
     }
 
     func saveCredentialsToKeychain() {
@@ -84,10 +89,6 @@ final class AppModel: ObservableObject {
         coolifyTestResult = nil
         defer { isTestingCoolify = false }
 
-        guard let config else {
-            coolifyTestResult = "Config not loaded"
-            return
-        }
         guard let base = URL(string: coolifyBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)),
               !coolifyToken.isEmpty
         else {
@@ -95,7 +96,8 @@ final class AppModel: ObservableObject {
             return
         }
 
-        let apiBase = config.coolify.apiBaseURL(host: base)
+        let coolifyConfig = config?.coolify ?? CoolifyConfig(dashboardPath: "/", apiPath: "/api/v1")
+        let apiBase = coolifyConfig.apiBaseURL(host: base)
         let client = LiveCoolifyClient(baseURL: apiBase, token: coolifyToken)
         do {
             let servers = try await client.listServers()

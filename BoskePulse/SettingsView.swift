@@ -5,6 +5,17 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            if let configError = model.configError {
+                Section {
+                    Text(configError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                    Button("Reload config") {
+                        model.reloadConfig()
+                    }
+                }
+            }
+
             Section {
                 Text("Secrets are stored in macOS Keychain only — never on disk.")
                     .font(.caption)
