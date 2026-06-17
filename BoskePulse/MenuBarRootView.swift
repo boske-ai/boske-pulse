@@ -12,13 +12,35 @@ struct MenuBarRootView: View {
                     .font(.caption)
                     .foregroundStyle(.red)
             }
+            if !model.operatorHints.messages.isEmpty {
+                hintsBanner
+            }
             Divider()
             if let servers = model.snapshot?.servers {
                 ForEach(servers) { server in
-                    ServerRowView(server: server)
-                        .contextMenu {
-                            Button("Copy SSH") { model.copySSH(for: server.id) }
+                    ServerRowView(
+                        server: server,
+                        role: model.serverConfig(for: server.id)?.role
+                    )
+                    .contextMenu {
+                        Button("Copy SSH") { model.copySSH(for: server.id) }
+                        Button("Open Hetzner") { model.openHetzner(for: server.id) }
+                        if model.serverConfig(for: server.id)?.coolifyManaged == true {
+                            Button("Open Coolify") { model.openCoolify(for: server.id) }
                         }
+                        if !server.endpointChecks.isEmpty {
+                            Divider()
+                            ForEach(server.endpointChecks) { check in
+                                if let url = model.serverConfig(for: server.id)?
+                                    .publicEndpoints.first(where: { $0.id == check.id })?.url
+                                {
+                                    Button("Open \(check.label)") {
+                                        model.openEndpoint(url)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             } else if model.configError == nil {
                 Text(model.isRefreshing ? "Refreshing…" : "Syncing…")
@@ -39,7 +61,7 @@ struct MenuBarRootView: View {
             }
         }
         .padding(14)
-        .frame(width: 380)
+        .frame(width: 400)
     }
 
     private var header: some View {
@@ -56,28 +78,69 @@ struct MenuBarRootView: View {
             }
         }
     }
+
+    private var hintsBanner: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(model.operatorHints.messages, id: \.self) { message in
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
 }
 
 struct ServerRowView: View {
     let server: ServerSnapshot
+    let role: String?
 
     var body: some View {
         HStack(alignment: .top) {
             statusDot
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(server.name)
                     .font(.system(.body, design: .monospaced))
-                if server.containersTotal > 0 {
-                    Text("\(server.containersRunning)/\(server.containersTotal) containers")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if let latency = server.endpointChecks.first?.latencyMs {
-                    Text("\(latency)ms")
+                if let role {
+                    Text(role)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                if let cpu = server.cpuPercent {
+                ForEach(server.endpointChecks) { check in
+                    HStack(spacing: 4) {
+                        checkDot(check.status)
+                        Text(check.label)
+                        if let latency = check.latencyMs {
+                            Text("\(latency)ms")
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(check.status.rawValue)
+                            .foregroundStyle(checkColor(check.status))
+                    }
+                    .font(.caption2)
+                }
+                ForEach(server.privateProbes) { probe in
+                    HStack(spacing: 4) {
+                        checkDot(probe.status)
+                        Text(probe.label)
+                        Text(probe.status.rawValue)
+                            .foregroundStyle(checkColor(probe.status))
+                    }
+                    .font(.caption2)
+                }
+                if server.containersTotal > 0 {
+                    Text("\(server.containersRunning)/\(server.containersTotal) containers")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if let cpu = server.cpuPercent, let ram = server.ramPercent {
+                    Text(String(format: "CPU %.0f%% · RAM %.0f%%", cpu, ram))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                } else if let cpu = server.cpuPercent {
                     Text(String(format: "CPU %.0f%%", cpu))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -98,7 +161,26 @@ struct ServerRowView: View {
     }
 
     private var color: Color {
-        switch server.overall {
+        overallColor(server.overall)
+    }
+
+    private func checkDot(_ status: CheckStatus) -> some View {
+        Circle()
+            .fill(checkColor(status))
+            .frame(width: 5, height: 5)
+    }
+
+    private func checkColor(_ status: CheckStatus) -> Color {
+        switch status {
+        case .ok: return .green
+        case .warn: return .yellow
+        case .fail: return .red
+        case .skipped: return .gray
+        }
+    }
+
+    private func overallColor(_ health: OverallHealth) -> Color {
+        switch health {
         case .healthy: return .green
         case .degraded: return .yellow
         case .down: return .red
