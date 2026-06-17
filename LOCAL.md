@@ -61,6 +61,28 @@ make test                       # swift test in BoskePulseCore
 
 **Save to Keychain** — tokens never touch disk as plaintext.
 
+## What you need to provide
+
+Boske Pulse does **not** use `.env` files or a Qlify API. Integrations are **Coolify** (self-hosted PaaS), **Hetzner Cloud**, **Tailscale**, and optional **Telegram**.
+
+| # | What | Where to get it | Required for |
+|---|------|-----------------|--------------|
+| 1 | **Coolify base URL** | Tailscale IP of your Coolify host, e.g. `http://100.x.x.x:8000` | Container status |
+| 2 | **Coolify API token** | Coolify dashboard → **Keys / API** → create token | Container status |
+| 3 | **Hetzner read-only token** | [Hetzner Cloud Console](https://console.hetzner.cloud/) → Security → API tokens (read-only) | CPU/RAM metrics |
+| 4 | **Tailscale on Mac** | Same tailnet as production VMs | Coolify API + private probes (`10.0.0.2:5433`) |
+| 5 | **Telegram bot token** (optional) | [@BotFather](https://t.me/BotFather) | Phone alerts |
+| 6 | **Telegram chat ID** (optional) | Message your bot, then `https://api.telegram.org/bot<token>/getUpdates` | Phone alerts |
+
+**Works without any tokens:** public health checks (`boske.dev`, `app.boske.dev`, `search.boske.dev`, `llm.boske.dev`).
+
+**Ops prerequisites** (outside this repo — tracked in the boske monorepo):
+
+- Tailscale on all 4 Hetzner VMs + subnet route `10.0.0.0/16` approved
+- Search + LLM servers migrated into Coolify (so all 4 appear in the Coolify API)
+
+Use **Settings → Test Coolify / Test Hetzner** after saving credentials to verify connectivity before relying on the menu bar sync.
+
 ## Desktop widget
 
 After first successful sync:

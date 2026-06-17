@@ -16,6 +16,11 @@ final class AppModel: ObservableObject {
     @Published var hetznerToken: String = ""
     @Published var telegramBotToken: String = ""
     @Published var telegramChatID: String = ""
+    @Published private(set) var credentialsSaveMessage: String?
+    @Published private(set) var coolifyTestResult: String?
+    @Published private(set) var hetznerTestResult: String?
+    @Published private(set) var isTestingCoolify = false
+    @Published private(set) var isTestingHetzner = false
 
     private static let pollTickSeconds = 10
 
@@ -67,8 +72,56 @@ final class AppModel: ObservableObject {
         keychain.save(hetznerToken, account: "hetznerToken")
         keychain.save(telegramBotToken, account: "telegramBotToken")
         keychain.save(telegramChatID, account: "telegramChatID")
+        credentialsSaveMessage = "Saved to Keychain"
+        coolifyTestResult = nil
+        hetznerTestResult = nil
         rebuildEngine()
         Task { await refreshNow() }
+    }
+
+    func testCoolifyConnection() async {
+        isTestingCoolify = true
+        coolifyTestResult = nil
+        defer { isTestingCoolify = false }
+
+        guard let config else {
+            coolifyTestResult = "Config not loaded"
+            return
+        }
+        guard let base = URL(string: coolifyBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)),
+              !coolifyToken.isEmpty
+        else {
+            coolifyTestResult = "Enter Coolify base URL and API token"
+            return
+        }
+
+        let apiBase = config.coolify.apiBaseURL(host: base)
+        let client = LiveCoolifyClient(baseURL: apiBase, token: coolifyToken)
+        do {
+            let servers = try await client.listServers()
+            coolifyTestResult = "Connected — \(servers.count) server(s) in Coolify"
+        } catch {
+            coolifyTestResult = "Failed — \(error.localizedDescription)"
+        }
+    }
+
+    func testHetznerConnection() async {
+        isTestingHetzner = true
+        hetznerTestResult = nil
+        defer { isTestingHetzner = false }
+
+        guard !hetznerToken.isEmpty else {
+            hetznerTestResult = "Enter Hetzner API token"
+            return
+        }
+
+        let client = LiveHetznerClient(token: hetznerToken)
+        do {
+            let names = try await client.listServerNames()
+            hetznerTestResult = "Connected — \(names.count) server(s) in project"
+        } catch {
+            hetznerTestResult = "Failed — \(error.localizedDescription)"
+        }
     }
 
     func openCoolify() {

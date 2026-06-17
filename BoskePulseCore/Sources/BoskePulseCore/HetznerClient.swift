@@ -7,6 +7,7 @@ public struct HetznerServerMetrics: Sendable, Equatable {
 
 public protocol HetznerClient: Sendable {
     func metrics(forServerName name: String) async throws -> HetznerServerMetrics
+    func listServerNames() async throws -> [String]
 }
 
 /// Minimal Hetzner Cloud API client — resolves server by name, reads metrics time series.
@@ -18,6 +19,11 @@ public struct LiveHetznerClient: HetznerClient {
     public init(token: String, session: URLSession = .shared) {
         self.token = token
         self.session = session
+    }
+
+    public func listServerNames() async throws -> [String] {
+        let servers: HetznerServersResponse = try await get(path: "servers")
+        return servers.servers.map(\.name)
     }
 
     public func metrics(forServerName name: String) async throws -> HetznerServerMetrics {
@@ -44,9 +50,18 @@ public struct LiveHetznerClient: HetznerClient {
     }
 }
 
-public enum HetznerError: Error, Equatable {
+public enum HetznerError: Error, Equatable, LocalizedError {
     case httpStatus(Int)
     case notConfigured
+
+    public var errorDescription: String? {
+        switch self {
+        case .httpStatus(let code):
+            return "HTTP \(code)"
+        case .notConfigured:
+            return "Hetzner not configured"
+        }
+    }
 }
 
 // MARK: - API response shapes (subset)

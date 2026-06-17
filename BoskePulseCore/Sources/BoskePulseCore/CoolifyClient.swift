@@ -36,13 +36,30 @@ public struct LiveCoolifyClient: CoolifyClient {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
             throw CoolifyError.httpStatus(code)
         }
-        return try JSONDecoder().decode(T.self, from: data)
+        let decoder = JSONDecoder()
+        if let envelope = try? decoder.decode(CoolifyListEnvelope<T>.self, from: data) {
+            return envelope.data
+        }
+        return try decoder.decode(T.self, from: data)
     }
 }
 
-public enum CoolifyError: Error, Equatable {
+private struct CoolifyListEnvelope<T: Decodable>: Decodable {
+    let data: T
+}
+
+public enum CoolifyError: Error, Equatable, LocalizedError {
     case httpStatus(Int)
     case notConfigured
+
+    public var errorDescription: String? {
+        switch self {
+        case .httpStatus(let code):
+            return "HTTP \(code)"
+        case .notConfigured:
+            return "Coolify not configured"
+        }
+    }
 }
 
 public struct CoolifyMapper {
