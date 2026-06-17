@@ -7,6 +7,10 @@ boske-production.json
 *.xcworkspace
 xcuserdata/
 DerivedData/
+.build/
+
+# Swift Package Manager
+**/.build/
 
 # macOS
 .DS_Store
