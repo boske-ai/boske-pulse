@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/matthieubrousse/apps/canopystudio/apps/boske-pulse/BoskePulseCore/.build/arm64-apple-macosx/debug/BoskePulseCorePackageTests.build/primary.swiftdeps"
+  },
+  "/Users/matthieubrousse/apps/canopystudio/apps/boske-pulse/BoskePulseCore/.build/arm64-apple-macosx/debug/BoskePulseCorePackageTests.derived/runner.swift": {
+    "dependencies": "/Users/matthieubrousse/apps/canopystudio/apps/boske-pulse/BoskePulseCore/.build/arm64-apple-macosx/debug/BoskePulseCorePackageTests.build/runner.d",
+    "object": "/Users/matthieubrousse/apps/canopystudio/apps/boske-pulse/BoskePulseCore/.build/arm64-apple-macosx/debug/BoskePulseCorePackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/matthieubrousse/apps/canopystudio/apps/boske-pulse/BoskePulseCore/.build/arm64-apple-macosx/debug/BoskePulseCorePackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/matthieubrousse/apps/canopystudio/apps/boske-pulse/BoskePulseCore/.build/arm64-apple-macosx/debug/BoskePulseCorePackageTests.build/runner.swiftdeps",
+    "diagnostics": "/Users/matthieubrousse/apps/canopystudio/apps/boske-pulse/BoskePulseCore/.build/arm64-apple-macosx/debug/BoskePulseCorePackageTests.build/runner.dia"
+  }
+}

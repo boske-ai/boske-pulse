@@ -7,6 +7,20 @@ public struct PulseCredentials: Sendable, Equatable {
     public let telegramBotToken: String?
     public let telegramChatID: String?
 
+    public init(
+        coolifyBaseURL: URL?,
+        coolifyToken: String?,
+        hetznerToken: String?,
+        telegramBotToken: String?,
+        telegramChatID: String?
+    ) {
+        self.coolifyBaseURL = coolifyBaseURL
+        self.coolifyToken = coolifyToken
+        self.hetznerToken = hetznerToken
+        self.telegramBotToken = telegramBotToken
+        self.telegramChatID = telegramChatID
+    }
+
     public static let empty = PulseCredentials(
         coolifyBaseURL: nil,
         coolifyToken: nil,
