@@ -135,6 +135,15 @@ struct ServerRowView: View {
                     Text("\(server.containersRunning)/\(server.containersTotal) containers")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                    ForEach(server.containers) { container in
+                        HStack(spacing: 4) {
+                            checkDot(container.health)
+                            Text(container.name)
+                            Text(container.state)
+                                .foregroundStyle(checkColor(container.health))
+                        }
+                        .font(.caption2)
+                    }
                 }
                 if let cpu = server.cpuPercent, let ram = server.ramPercent {
                     Text(String(format: "CPU %.0f%% · RAM %.0f%%", cpu, ram))
