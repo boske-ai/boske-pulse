@@ -39,6 +39,11 @@ targets:
         COMBINE_HIDPI_IMAGES: YES
     entitlements:
       path: BoskePulse/BoskePulse.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.application-groups:
+          - group.eu.canopystudio.boske.pulse
 
   BoskePulseWidget:
     type: app-extension
@@ -55,6 +60,12 @@ targets:
         INFOPLIST_FILE: BoskePulseWidget/Info.plist
         CODE_SIGN_ENTITLEMENTS: BoskePulseWidget/BoskePulseWidget.entitlements
         SKIP_INSTALL: YES
+    entitlements:
+      path: BoskePulseWidget/BoskePulseWidget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups:
+          - group.eu.canopystudio.boske.pulse
 
 schemes:
   BoskePulse:
