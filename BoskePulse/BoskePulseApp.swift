@@ -12,10 +12,6 @@ struct BoskePulseApp: App {
             StatusMenuBarLabel(overall: appModel.snapshot?.overall ?? .unknown, tailscaleUp: appModel.snapshot?.tailscaleConnected ?? false)
         }
         .menuBarExtraStyle(.window)
-
-        Settings {
-            SettingsView(model: appModel)
-        }
     }
 }
 

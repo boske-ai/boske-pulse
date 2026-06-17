@@ -50,7 +50,7 @@ make test                       # swift test in BoskePulseCore
 
 ## Credentials
 
-**Boske Pulse → Settings** — click **Settings…** in the menu bar popup, or press **⌘,**:
+**Boske Pulse → Settings** — click **Settings…** in the menu bar popup (opens a separate window).
 
 | Field | Value |
 |-------|--------|
