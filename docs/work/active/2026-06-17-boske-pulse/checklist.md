@@ -20,7 +20,6 @@
 
 ## App polish (P3–P6)
 
-- [ ] Staggered poll intervals (health 30s / Coolify 60s / Hetzner 120s)
 - [x] Staggered poll intervals (health 30s / Coolify 60s / Hetzner 120s)
 - [x] Private probe row in menu for `example-data-01` PG
 - [x] Notification categories + mute action
