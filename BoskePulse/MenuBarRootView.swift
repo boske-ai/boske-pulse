@@ -143,8 +143,10 @@ struct ServerRowView: View {
                         HStack(spacing: 4) {
                             checkDot(container.health)
                             Text(container.name)
-                            Text(container.state)
+                            Text(container.health.rawValue)
                                 .foregroundStyle(checkColor(container.health))
+                            Text(container.state)
+                                .foregroundStyle(.secondary)
                         }
                         .font(.caption2)
                     }

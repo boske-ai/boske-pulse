@@ -96,7 +96,7 @@ final class AppModel: ObservableObject {
             return
         }
 
-        let coolifyConfig = config?.coolify ?? CoolifyConfig(dashboardPath: "/", apiPath: "/api/v1")
+        let coolifyConfig = config?.coolify ?? .default
         let apiBase = coolifyConfig.apiBaseURL(host: base)
         let client = LiveCoolifyClient(baseURL: apiBase, token: coolifyToken)
         do {
