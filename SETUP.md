@@ -1,11 +1,27 @@
-See **[LOCAL.md](./LOCAL.md)** for the full Mac setup guide.
+# Setup
 
-During initial scaffolding, `boske-pulse` lives inside the `boske` monorepo at `boske-pulse/`. Extract to a sibling repo before long-term development:
+See **[LOCAL.md](./LOCAL.md)** for build and run on Mac.
+
+## Repository
+
+| Item | Value |
+|------|-------|
+| **GitHub** | [boske-ai/boske-pulse](https://github.com/boske-ai/boske-pulse) (private) |
+| **Disk path** | `~/apps/canopystudio/apps/boske-pulse` |
+| **Category** | Boske operator tool (not a Canopy Studio consumer app) |
+
+## First-time remote (maintainers)
 
 ```bash
-cd ~/apps/canopystudio/apps
-cp -R boske/boske-pulse ./boske-pulse
-cd boske-pulse
-git init -b main && git add . && git commit -m "initial boske pulse"
-gh repo create boske-ai/boske-pulse --private --source=. --push
+cd ~/apps/canopystudio/apps/boske-pulse
+gh repo create boske-ai/boske-pulse --private --source=. --remote=origin --push
 ```
+
+## Open-source checklist (later)
+
+Before making the repo public under **Boske Community**:
+
+- [ ] Replace real IPs/hostnames in `Config/boske-production.example.json` with placeholders
+- [ ] Confirm no secrets in git history
+- [ ] Add `LICENSE` (MIT)
+- [ ] Document on `boske.dev` / Boske Community docs
