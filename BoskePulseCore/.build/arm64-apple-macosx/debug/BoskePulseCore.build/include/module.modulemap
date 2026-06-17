@@ -1,0 +1,3 @@
+module BoskePulseCore {
+    header "/Users/matthieubrousse/apps/src/boske-pulse/BoskePulseCore/.build/arm64-apple-macosx/debug/BoskePulseCore.build/include/BoskePulseCore-Swift.h"
+}

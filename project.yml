@@ -64,7 +64,3 @@ schemes:
         BoskePulseWidget: all
     run:
       config: Debug
-    test:
-      config: Debug
-      targets:
-        - BoskePulseCore/BoskePulseCoreTests

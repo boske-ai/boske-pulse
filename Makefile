@@ -1,4 +1,4 @@
-.PHONY: setup test open generate
+.PHONY: setup test open generate build
 
 setup:
 	@chmod +x scripts/setup.sh
@@ -9,6 +9,9 @@ generate:
 
 test:
 	cd BoskePulseCore && swift test
+
+build: setup
+	xcodebuild -scheme BoskePulse -project BoskePulse.xcodeproj -configuration Debug build CODE_SIGNING_ALLOWED=NO
 
 open:
 	open BoskePulse.xcodeproj
