@@ -55,7 +55,8 @@ public enum HealthRollup {
 
     public static func production(
         servers: [ServerSnapshot],
-        tailscaleConnected: Bool
+        tailscaleConnected: Bool,
+        now: Date = Date()
     ) -> ProductionSnapshot {
         let overallStatus = overall(from: servers.map { snapshot in
             switch snapshot.overall {
@@ -82,7 +83,7 @@ public enum HealthRollup {
             overall: overallStatus,
             tailscaleConnected: tailscaleConnected,
             servers: servers,
-            lastSync: Date(),
+            lastSync: now,
             smokeSummary: smokeSummary
         )
     }
