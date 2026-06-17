@@ -1,5 +1,63 @@
 import Foundation
 
+public struct ParsedCoolifyStatus: Sendable, Equatable {
+    public let baseState: String
+    public let healthDetail: String?
+    public let health: CheckStatus
+}
+
+public struct CoolifyMapper {
+    public static func parseStatus(_ rawStatus: String) -> ParsedCoolifyStatus {
+        let normalized = rawStatus.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let parts = normalized.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+        let baseState = String(parts.first ?? Substring(normalized))
+        let healthDetail = parts.count > 1 ? String(parts[1]) : nil
+
+        let health: CheckStatus
+        switch baseState {
+        case "running", "healthy", "started":
+            switch healthDetail {
+            case "healthy", nil, "":
+                health = .ok
+            case "unknown", "starting":
+                health = .warn
+            case "unhealthy":
+                health = .fail
+            default:
+                health = .warn
+            }
+        case "degraded", "starting", "restarting":
+            health = .warn
+        case "stopped", "exited", "dead", "failed", "error":
+            health = .fail
+        default:
+            health = .fail
+        }
+
+        return ParsedCoolifyStatus(baseState: baseState, healthDetail: healthDetail, health: health)
+    }
+
+    public static func containers(from resources: [CoolifyResource]) -> [ContainerTile] {
+        resources.map { resource in
+            let parsed = parseStatus(resource.status)
+            return ContainerTile(
+                id: resource.uuid,
+                name: resource.name,
+                state: parsed.healthDetail.map { "\(parsed.baseState):\($0)" } ?? parsed.baseState,
+                image: resource.type,
+                health: parsed.health
+            )
+        }
+    }
+
+    public static func matchServer(
+        configName: String,
+        coolifyServers: [CoolifyServer]
+    ) -> CoolifyServer? {
+        coolifyServers.first { $0.name == configName || $0.name.contains(configName) }
+    }
+}
+
 public protocol CoolifyClient: Sendable {
     func listServers() async throws -> [CoolifyServer]
     func listResources(serverUUID: String) async throws -> [CoolifyResource]
@@ -59,35 +117,5 @@ public enum CoolifyError: Error, Equatable, LocalizedError {
         case .notConfigured:
             return "Coolify not configured"
         }
-    }
-}
-
-public struct CoolifyMapper {
-    public static func containers(from resources: [CoolifyResource]) -> [ContainerTile] {
-        resources.map { resource in
-            let health: CheckStatus
-            switch resource.status.lowercased() {
-            case "running", "healthy", "started":
-                health = .ok
-            case "degraded", "starting", "restarting":
-                health = .warn
-            default:
-                health = .fail
-            }
-            return ContainerTile(
-                id: resource.uuid,
-                name: resource.name,
-                state: resource.status,
-                image: resource.type,
-                health: health
-            )
-        }
-    }
-
-    public static func matchServer(
-        configName: String,
-        coolifyServers: [CoolifyServer]
-    ) -> CoolifyServer? {
-        coolifyServers.first { $0.name == configName || $0.name.contains(configName) }
     }
 }

@@ -161,6 +161,13 @@ public struct CoolifyConfig: Codable, Sendable, Equatable {
     public let dashboardPath: String
     public let apiPath: String
 
+    public init(dashboardPath: String, apiPath: String) {
+        self.dashboardPath = dashboardPath
+        self.apiPath = apiPath
+    }
+
+    public static let `default` = CoolifyConfig(dashboardPath: "/", apiPath: "/api/v1")
+
     public func apiBaseURL(host: URL) -> URL {
         URL(string: apiPath, relativeTo: host) ?? host
     }

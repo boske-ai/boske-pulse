@@ -16,6 +16,8 @@ final class ConfigLoaderTests: XCTestCase {
     func testDefaultConfigURLFindsExampleInPackageResources() {
         XCTAssertNotNil(ConfigLoader.defaultConfigURL(bundle: Bundle(for: ConfigLoaderTests.self)))
     }
+
+    func testExampleJSONHasOptionalFieldsOmitted() throws {
         let url = exampleConfigURL()
         let data = try Data(contentsOf: url)
         let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
