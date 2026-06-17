@@ -1,0 +1,16 @@
+# Local overrides — copy from boske-production.example.json
+boske-production.json
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+
+# macOS
+.DS_Store
+
+# Secrets
+*.pem
+.env
+.env.*
