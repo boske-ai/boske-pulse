@@ -9,6 +9,18 @@ final class CoolifyMapperTests: XCTestCase {
         XCTAssertEqual(tiles.first?.health, .ok)
     }
 
+    func testMapsRunningUnknownToWarn() {
+        let parsed = CoolifyMapper.parseStatus("running:unknown")
+        XCTAssertEqual(parsed.baseState, "running")
+        XCTAssertEqual(parsed.healthDetail, "unknown")
+        XCTAssertEqual(parsed.health, .warn)
+    }
+
+    func testMapsDegradedUnhealthyToWarn() {
+        let parsed = CoolifyMapper.parseStatus("degraded:unhealthy")
+        XCTAssertEqual(parsed.health, .warn)
+    }
+
     func testMatchServerByName() {
         let match = CoolifyMapper.matchServer(
             configName: "example-llm-01",
