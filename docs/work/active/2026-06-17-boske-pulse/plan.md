@@ -81,10 +81,10 @@ Approve `10.99.0.0/16` in Tailscale admin.
 
 ### Remaining app work
 
-- [ ] Staggered polling intervals per source (currently single loop at `publicHealthSeconds`)
-- [ ] Per-server Hetzner + Coolify links from config `links` block
-- [ ] Menu bar icon reflects `overall` + Tailscale state (wired — verify visually)
-- [ ] Error states when credentials missing (show what's needed, don't spin silently)
+- [x] Staggered polling intervals per source (10s tick; health 30s / Coolify 60s / Hetzner 120s)
+- [x] Per-server Hetzner + Coolify links from config `links` block
+- [x] Menu bar icon reflects `overall` + Tailscale state (wired — verify visually)
+- [x] Error states when credentials missing (operator hints banner)
 
 **Files:** `BoskePulseCore/Sources/**`, `BoskePulse/**`
 

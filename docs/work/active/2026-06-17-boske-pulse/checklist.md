@@ -21,8 +21,9 @@
 ## App polish (P3–P6)
 
 - [ ] Staggered poll intervals (health 30s / Coolify 60s / Hetzner 120s)
-- [ ] Private probe row in menu for `example-data-01` PG
-- [ ] Notification categories + mute action
+- [x] Staggered poll intervals (health 30s / Coolify 60s / Hetzner 120s)
+- [x] Private probe row in menu for `example-data-01` PG
+- [x] Notification categories + mute action
 - [ ] Widget verified with signed App Group
 - [ ] End-to-end alert test (sustained red → Mac + Telegram)
 

@@ -9,6 +9,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var snapshot: ProductionSnapshot?
     @Published private(set) var config: ProductionConfig?
     @Published private(set) var configError: String?
+    @Published private(set) var operatorHints: OperatorHints = .none
     @Published private(set) var isRefreshing = false
     @Published var coolifyBaseURL: String = ""
     @Published var coolifyToken: String = ""
@@ -16,12 +17,16 @@ final class AppModel: ObservableObject {
     @Published var telegramBotToken: String = ""
     @Published var telegramChatID: String = ""
 
+    private static let pollTickSeconds = 10
+
     private var engine: PulseEngine?
     private var loopTask: Task<Void, Never>?
     private let keychain = KeychainService()
     private let snapshotStore = SnapshotStore(appGroupIdentifier: "group.eu.canopystudio.boske.pulse")
+    private let notificationDelegate = NotificationDelegate()
 
     init() {
+        configureNotifications()
         requestNotificationPermission()
         loadConfig()
         loadCredentialsFromKeychain()
@@ -35,7 +40,11 @@ final class AppModel: ObservableObject {
     func refreshNow() async {
         isRefreshing = true
         defer { isRefreshing = false }
-        await tick()
+        await tick(force: true)
+    }
+
+    func serverConfig(for id: String) -> ServerConfig? {
+        config?.servers.first(where: { $0.id == id })
     }
 
     func loadConfig() {
@@ -59,22 +68,66 @@ final class AppModel: ObservableObject {
         keychain.save(telegramBotToken, account: "telegramBotToken")
         keychain.save(telegramChatID, account: "telegramChatID")
         rebuildEngine()
+        Task { await refreshNow() }
     }
 
     func openCoolify() {
-        guard let base = URL(string: coolifyBaseURL) else { return }
-        NSWorkspace.shared.open(base)
+        if let base = URL(string: coolifyBaseURL) {
+            NSWorkspace.shared.open(base)
+            return
+        }
+        if let url = URL(string: "https://console.hetzner.cloud/") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    func openCoolify(for serverID: String) {
+        guard let server = serverConfig(for: serverID), server.coolifyManaged else { return }
+        openCoolify()
     }
 
     func copySSH(for serverID: String) {
-        guard let server = config?.servers.first(where: { $0.id == serverID }) else { return }
+        guard let server = serverConfig(for: serverID) else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(server.links.ssh, forType: .string)
     }
 
-    func openHetzner() {
-        guard let url = URL(string: "https://console.hetzner.cloud/") else { return }
+    func openHetzner(for serverID: String? = nil) {
+        let urlString: String
+        if let serverID, let server = serverConfig(for: serverID) {
+            urlString = server.links.hetzner
+        } else {
+            urlString = "https://console.hetzner.cloud/"
+        }
+        guard let url = URL(string: urlString) else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    func openEndpoint(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    func muteAlerts(for hours: Double = 1) {
+        Task {
+            await engine?.acknowledgeAlerts(for: hours * 3600)
+        }
+    }
+
+    private func configureNotifications() {
+        let mute = UNNotificationAction(
+            identifier: NotificationDelegate.muteActionID,
+            title: "Mute 1 hour",
+            options: []
+        )
+        let categories = ["PRODUCTION_DOWN", "SERVER_DEGRADED", "DEPLOY_FAILED"].map {
+            UNNotificationCategory(identifier: $0, actions: [mute], intentIdentifiers: [], options: [])
+        }
+        UNUserNotificationCenter.current().setNotificationCategories(Set(categories))
+        notificationDelegate.onMute = { [weak self] in
+            self?.muteAlerts()
+        }
+        UNUserNotificationCenter.current().delegate = notificationDelegate
     }
 
     private func requestNotificationPermission() {
@@ -115,17 +168,17 @@ final class AppModel: ObservableObject {
         loopTask?.cancel()
         loopTask = Task { [weak self] in
             while !Task.isCancelled {
-                await self?.tick()
-                let interval = UInt64((self?.config?.polling.publicHealthSeconds ?? 30) * 1_000_000_000)
-                try? await Task.sleep(nanoseconds: interval)
+                await self?.tick(force: false)
+                try? await Task.sleep(nanoseconds: UInt64(Self.pollTickSeconds * 1_000_000_000))
             }
         }
     }
 
-    private func tick() async {
+    private func tick(force: Bool) async {
         guard let engine else { return }
-        let snap = await engine.refresh()
+        let snap = await engine.refresh(force: force)
         snapshot = snap
+        operatorHints = await engine.operatorHints
         try? snapshotStore.write(snap)
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -135,6 +188,7 @@ final class AppModel: ObservableObject {
         content.title = "Boske Pulse"
         content.body = snapshot.smokeSummary
         content.sound = .default
+        content.categoryIdentifier = categoryIdentifier(for: snapshot.overall)
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
         try? await UNUserNotificationCenter.current().add(request)
@@ -143,6 +197,29 @@ final class AppModel: ObservableObject {
            !telegramChatID.isEmpty
         {
             try? await TelegramNotifier().send(botToken: telegramBotToken, chatID: telegramChatID, text: message)
+        }
+    }
+
+    private func categoryIdentifier(for overall: OverallHealth) -> String {
+        switch overall {
+        case .down: return "PRODUCTION_DOWN"
+        case .degraded: return "SERVER_DEGRADED"
+        case .healthy, .unknown: return "SERVER_DEGRADED"
+        }
+    }
+}
+
+final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    static let muteActionID = "MUTE_1H"
+
+    var onMute: (() -> Void)?
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        if response.actionIdentifier == Self.muteActionID {
+            onMute?()
         }
     }
 }
