@@ -1,4 +1,5 @@
 # Local overrides — copy from boske-production.example.json
+Config/boske-production.json
 boske-production.json
 
 # Xcode
