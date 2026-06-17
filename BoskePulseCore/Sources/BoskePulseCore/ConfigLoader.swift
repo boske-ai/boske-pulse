@@ -19,11 +19,10 @@ public enum ConfigLoader {
     }
 
     public static func defaultConfigURL(bundle: Bundle = .main) -> URL? {
-        if let url = bundle.url(forResource: "boske-production", withExtension: "json") {
-            return url
-        }
-        if let url = bundle.url(forResource: "boske-production.example", withExtension: "json") {
-            return url
+        for candidate in bundledConfigCandidates(mainBundle: bundle) {
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
         }
         for relative in ["Config/boske-production.json", "Config/boske-production.example.json"] {
             let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
@@ -33,5 +32,28 @@ public enum ConfigLoader {
             }
         }
         return nil
+    }
+
+    public static func loadDefault(bundle: Bundle = .main) throws -> ProductionConfig {
+        guard let url = defaultConfigURL(bundle: bundle) else {
+            throw Error.fileNotFound("boske-production.json")
+        }
+        return try load(from: url)
+    }
+
+    private static func bundledConfigCandidates(mainBundle: Bundle) -> [URL] {
+        var urls: [URL] = []
+        if let url = mainBundle.url(forResource: "boske-production", withExtension: "json") {
+            urls.append(url)
+        }
+        if let url = mainBundle.url(forResource: "boske-production.example", withExtension: "json") {
+            urls.append(url)
+        }
+        #if SWIFT_PACKAGE
+        if let url = Bundle.module.url(forResource: "boske-production.example", withExtension: "json") {
+            urls.append(url)
+        }
+        #endif
+        return urls
     }
 }
