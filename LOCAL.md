@@ -50,7 +50,7 @@ make test                       # swift test in BoskePulseCore
 
 ## Credentials
 
-**Boske Pulse → Settings** (⌘,):
+**Boske Pulse → Settings** — click **Settings…** in the menu bar popup, or press **⌘,**:
 
 | Field | Value |
 |-------|--------|
@@ -69,7 +69,7 @@ Boske Pulse does **not** use `.env` files or a Qlify API. Integrations are **Coo
 |---|------|-----------------|--------------|
 | 1 | **Coolify base URL** | Tailscale IP of your Coolify host, e.g. `http://100.x.x.x:8000` | Container status |
 | 2 | **Coolify API token** | Coolify dashboard → **Keys / API** → create token | Container status |
-| 3 | **Hetzner read-only token** | [Hetzner Cloud Console](https://console.hetzner.cloud/) → Security → API tokens (read-only) | CPU/RAM metrics |
+| 3 | **Hetzner read-only token** (optional) | [Hetzner Cloud Console](https://console.hetzner.cloud/) → Security → API tokens (read-only) | CPU/RAM metrics only — skip if you only want sites + containers |
 | 4 | **Tailscale on Mac** | Same tailnet as production VMs | Coolify API + private probes (`10.0.0.2:5433`) |
 | 5 | **Telegram bot token** (optional) | [@BotFather](https://t.me/BotFather) | Phone alerts |
 | 6 | **Telegram chat ID** (optional) | Message your bot, then `https://api.telegram.org/bot<token>/getUpdates` | Phone alerts |
