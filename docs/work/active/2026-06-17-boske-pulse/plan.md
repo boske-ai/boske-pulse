@@ -104,8 +104,8 @@ Approve `10.0.0.0/16` in Tailscale admin.
 
 - [x] `AlertDebouncer` unit tests
 - [x] macOS notification on alert + Telegram when configured
-- [ ] Notification categories: `PRODUCTION_DOWN`, `SERVER_DEGRADED`, `DEPLOY_FAILED`
-- [ ] Mute 1h action
+- [x] Notification categories: `PRODUCTION_DOWN`, `SERVER_DEGRADED`, `DEPLOY_FAILED`
+- [x] Mute 1h action
 - [ ] Telegram ack → suppress 30 min
 
 **Quality gate:** Simulated failure → Mac + Telegram within 6 min; no flap spam &lt;2 min.
@@ -116,8 +116,8 @@ Approve `10.0.0.0/16` in Tailscale admin.
 
 - [x] TCP probe via `PrivateNetworkProber`
 - [x] Skipped state when Tailscale offline
-- [ ] Licensing PG row visible in menu bar UI
-- [ ] Degraded badge when Tailscale down (public checks only)
+- [x] Licensing PG row visible in menu bar UI
+- [x] Degraded badge when Tailscale down (public checks only)
 
 ---
 
