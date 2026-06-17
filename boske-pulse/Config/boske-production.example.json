@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "privateNetwork": "boske-net",
+  "privateNetworkCIDR": "10.0.0.0/16",
+  "appGroupIdentifier": "group.eu.canopystudio.boske.pulse",
+  "servers": [
+    {
+      "id": "boske-website",
+      "name": "boske-website",
+      "role": "Coolify — website, leases, Stripe",
+      "hetznerServerName": "boske-website",
+      "publicIPv4": "62.238.1.236",
+      "privateIP": "10.0.0.3",
+      "region": "hel1",
+      "coolifyManaged": true,
+      "publicEndpoints": [
+        { "id": "website", "label": "boske.dev", "url": "https://boske.dev/", "expectStatus": 200 },
+        { "id": "app", "label": "app.boske.dev", "url": "https://app.boske.dev/api/health", "expectStatus": 200 }
+      ],
+      "links": {
+        "hetzner": "https://console.hetzner.cloud/",
+        "ssh": "ssh root@62.238.1.236"
+      }
+    },
+    {
+      "id": "boske-data-01",
+      "name": "boske-data-01",
+      "role": "Licensing PG + data stack",
+      "hetznerServerName": "boske-data-01",
+      "publicIPv4": "77.42.45.149",
+      "privateIP": "10.0.0.2",
+      "region": "hel1",
+      "coolifyManaged": true,
+      "privateProbes": [
+        { "id": "licensing-pg", "label": "licensing PG", "host": "10.0.0.2", "port": 5433 }
+      ],
+      "links": {
+        "hetzner": "https://console.hetzner.cloud/",
+        "ssh": "ssh root@77.42.45.149"
+      }
+    },
+    {
+      "id": "boske-search-01",
+      "name": "boske-search-01",
+      "role": "SearXNG + Valkey + Caddy",
+      "hetznerServerName": "boske-search-01",
+      "publicIPv4": "91.98.24.27",
+      "privateIP": "10.0.0.4",
+      "region": "nbg1",
+      "coolifyManaged": true,
+      "publicEndpoints": [
+        { "id": "search", "label": "search.boske.dev", "url": "https://search.boske.dev/", "expectStatus": 200 }
+      ],
+      "links": {
+        "hetzner": "https://console.hetzner.cloud/",
+        "ssh": "ssh root@91.98.24.27"
+      }
+    },
+    {
+      "id": "boske-llm-01",
+      "name": "boske-llm-01",
+      "role": "LLM proxy + Caddy",
+      "hetznerServerName": "boske-llm-01",
+      "publicIPv4": "178.105.21.212",
+      "privateIP": "10.0.0.5",
+      "region": "fsn1",
+      "coolifyManaged": true,
+      "publicEndpoints": [
+        {
+          "id": "llm-healthz",
+          "label": "llm.boske.dev",
+          "url": "https://llm.boske.dev/healthz",
+          "expectStatus": 200,
+          "expectBodyContains": "\"ok\":true"
+        }
+      ],
+      "links": {
+        "hetzner": "https://console.hetzner.cloud/",
+        "ssh": "ssh root@178.105.21.212"
+      }
+    }
+  ],
+  "coolify": {
+    "dashboardPath": "/",
+    "apiPath": "/api/v1"
+  },
+  "alerts": {
+    "debounceSeconds": 300,
+    "flapIgnoreSeconds": 120,
+    "telegramEnabled": true
+  },
+  "polling": {
+    "publicHealthSeconds": 30,
+    "coolifySeconds": 60,
+    "hetznerSeconds": 120,
+    "privateProbeSeconds": 60
+  }
+}
