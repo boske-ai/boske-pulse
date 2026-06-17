@@ -1,0 +1,70 @@
+name: BoskePulse
+options:
+  bundleIdPrefix: eu.canopystudio
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+
+packages:
+  BoskePulseCore:
+    path: BoskePulseCore
+
+targets:
+  BoskePulse:
+    type: application
+    platform: macOS
+    sources:
+      - BoskePulse
+    resources:
+      - path: Config/boske-production.example.json
+        buildPhase: resources
+      - path: Config/boske-production.json
+        buildPhase: resources
+        optional: true
+    dependencies:
+      - package: BoskePulseCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: eu.canopystudio.boske.pulse
+        PRODUCT_NAME: Boske Pulse
+        INFOPLIST_FILE: BoskePulse/Info.plist
+        CODE_SIGN_ENTITLEMENTS: BoskePulse/BoskePulse.entitlements
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+        COMBINE_HIDPI_IMAGES: YES
+    entitlements:
+      path: BoskePulse/BoskePulse.entitlements
+
+  BoskePulseWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - BoskePulseWidget
+    dependencies:
+      - package: BoskePulseCore
+      - target: BoskePulse
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: eu.canopystudio.boske.pulse.widget
+        PRODUCT_NAME: BoskePulseWidget
+        INFOPLIST_FILE: BoskePulseWidget/Info.plist
+        CODE_SIGN_ENTITLEMENTS: BoskePulseWidget/BoskePulseWidget.entitlements
+        SKIP_INSTALL: YES
+
+schemes:
+  BoskePulse:
+    build:
+      targets:
+        BoskePulse: all
+        BoskePulseWidget: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - BoskePulseCore/BoskePulseCoreTests
