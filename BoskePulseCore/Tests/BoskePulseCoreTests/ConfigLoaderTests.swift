@@ -22,10 +22,10 @@ final class ConfigLoaderTests: XCTestCase {
     }
 
     private func exampleConfigURL() -> URL {
-        URL(fileURLWithPath: #file)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Config/boske-production.example.json")
+        var directory = URL(fileURLWithPath: #file).deletingLastPathComponent()
+        for _ in 0..<3 {
+            directory.deleteLastPathComponent()
+        }
+        return directory.appendingPathComponent("Config/boske-production.example.json")
     }
 }

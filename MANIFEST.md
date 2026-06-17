@@ -52,7 +52,8 @@ Operators need a fast, local view of production without opening five browser tab
 |----------|------|
 | `~/apps/canopystudio/apps/boske-pulse/` | Local disk home (polyrepo sibling to `boske/`) |
 | `github.com/boske-ai/boske-pulse` | Canonical git remote |
-| `apps/boske/docs/work/active/` | Infra plans and ops checklists (cross-repo) |
+| `docs/work/active/2026-06-17-boske-pulse/` | This repo — app phases, checklist |
+| `apps/boske/docs/work/active/` | Boske monorepo — infra ops (Tailscale, Coolify) |
 
 ---
 

@@ -68,7 +68,11 @@ Core logic is testable without Xcode UI targets.
 
 ## Work tracking
 
-Ops plans and infra checklists live in the [boske](https://github.com/boske-ai/boske) monorepo under `docs/work/active/`.
+Active plan and checklist:
+
+`docs/work/active/2026-06-17-boske-pulse/`
+
+Cross-repo infra (Tailscale, Coolify migration) stays in the [boske](https://github.com/boske-ai/boske) monorepo.
 
 ## License
 
