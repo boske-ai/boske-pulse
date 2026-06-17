@@ -7,7 +7,7 @@
 - [x] `make test` — all BoskePulseCore tests pass
 - [x] `make setup` — xcodegen generates `BoskePulse.xcodeproj`
 - [x] `xcodebuild` — BoskePulse scheme builds (Debug, unsigned)
-- [ ] Xcode signing — Team + App Group on app + widget targets
+- [ ] Xcode signing — Team + App Group on app + widget targets (`make setup` sets team `88ND963L57` automatically)
 - [ ] Launch app — menu bar icon appears; public health syncs without tokens
 - [ ] Settings — save Coolify/Hetzner tokens to Keychain (when Tailscale ready)
 

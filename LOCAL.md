@@ -34,9 +34,15 @@ open BoskePulse.xcodeproj
 
 In Xcode:
 
-1. Set signing **Team** on **BoskePulse** and **BoskePulseWidget**
-2. Enable App Group `group.eu.canopystudio.boske.pulse` on both targets (entitlements already reference it)
-3. **Run** (⌘R) — menu bar icon top-right (no Dock icon)
+1. Run `make setup` first — regenerates the project with **Automatic** signing and team `88ND963L57` (same as other Canopy Studio apps).
+2. Open `BoskePulse.xcodeproj` → select **BoskePulse** target → **Signing & Capabilities**:
+   - ✅ Automatically manage signing
+   - Team: **Matthieu Brousse (88ND963L57)**
+3. Repeat for **BoskePulseWidget** target (widget extensions need their own profile).
+4. Ensure **App Groups** shows `group.eu.canopystudio.boske.pulse` on **both** targets. Xcode creates it on first successful sign if missing.
+5. **Run** (⌘R) — menu bar icon top-right (no Dock icon)
+
+If Xcode says the Mac isn't registered: **Product → Run** once; Xcode registers the device automatically. Or Xcode → Settings → Accounts → your Apple ID → **Download Manual Profiles**.
 
 ```bash
 make test                       # swift test in BoskePulseCore
