@@ -140,9 +140,9 @@ public actor PulseEngine {
     }
 
     private func refreshCoolify(credentials: PulseCredentials, tailscaleUp: Bool) async {
-        guard tailscaleUp,
-              let base = credentials.coolifyBaseURL,
-              let token = credentials.coolifyToken
+        guard let base = credentials.coolifyBaseURL,
+              let token = credentials.coolifyToken,
+              Self.canReachCoolify(baseURL: base, tailscaleUp: tailscaleUp)
         else {
             cache.coolifyServers = []
             cache.containersByServerName = [:]
@@ -209,15 +209,29 @@ public actor PulseEngine {
 
     private func buildOperatorHints(credentials: PulseCredentials, tailscaleUp: Bool) -> OperatorHints {
         var messages: [String] = []
-        if !tailscaleUp {
-            messages.append("Tailscale offline — Coolify and private probes paused")
-        } else if credentials.coolifyBaseURL == nil || credentials.coolifyToken == nil {
+        let coolifyNeedsTailscale = credentials.coolifyBaseURL.map { !Self.coolifyReachableWithoutTailscale(baseURL: $0) } ?? false
+
+        if credentials.coolifyBaseURL == nil || credentials.coolifyToken == nil {
             messages.append("Add Coolify URL + API token in Settings for container status")
+        } else if !tailscaleUp && coolifyNeedsTailscale {
+            messages.append("Tailscale offline — self-hosted Coolify API paused")
+        }
+        if !tailscaleUp {
+            messages.append("Tailscale offline — private probes paused")
         }
         if credentials.hetznerToken == nil {
-            messages.append("Add Hetzner read-only token in Settings for CPU/RAM metrics")
+            messages.append("Optional: Hetzner token for CPU/RAM (Coolify-only works without it)")
         }
         return OperatorHints(messages: messages)
+    }
+
+    /// HTTPS Coolify (e.g. Coolify Cloud) is reachable without Tailscale.
+    static func coolifyReachableWithoutTailscale(baseURL: URL) -> Bool {
+        baseURL.scheme?.lowercased() == "https"
+    }
+
+    static func canReachCoolify(baseURL: URL, tailscaleUp: Bool) -> Bool {
+        coolifyReachableWithoutTailscale(baseURL: baseURL) || tailscaleUp
     }
 
     private func buildSnapshot(now: Date) -> ProductionSnapshot {

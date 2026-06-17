@@ -11,9 +11,12 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Coolify (Tailscale URL)") {
-                TextField("Base URL", text: $model.coolifyBaseURL, prompt: Text("http://100.x.x.x:8000"))
+            Section("Coolify (required for containers)") {
+                TextField("Base URL", text: $model.coolifyBaseURL, prompt: Text("https://app.coolify.io"))
                     .textFieldStyle(.roundedBorder)
+                Text("Coolify Cloud: https://app.coolify.io · Self-hosted: your Tailscale URL")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 SecureField("API token", text: $model.coolifyToken)
                 HStack {
                     Button("Test Coolify") {
@@ -32,7 +35,10 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Hetzner Cloud") {
+            Section("Hetzner Cloud (optional — CPU/RAM only)") {
+                Text("Not needed for websites or containers. Coolify Sentinel metrics may replace this later.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 SecureField("Read-only API token", text: $model.hetznerToken)
                 HStack {
                     Button("Test Hetzner") {
