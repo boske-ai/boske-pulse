@@ -52,6 +52,10 @@ struct MenuBarRootView: View {
                     Task { await model.refreshNow() }
                 }
                 .disabled(model.isRefreshing || model.config == nil)
+                SettingsLink {
+                    Text("Settings…")
+                }
+                .buttonStyle(.plain)
                 Button("Coolify") { model.openCoolify() }
                 Button("Hetzner") { model.openHetzner() }
                 Spacer()

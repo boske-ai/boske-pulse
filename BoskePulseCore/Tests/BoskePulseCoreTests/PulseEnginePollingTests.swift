@@ -39,7 +39,20 @@ final class PulseEnginePollingTests: XCTestCase {
         )
         _ = await engine.refresh()
         let hints = await engine.operatorHints
-        XCTAssertTrue(hints.messages.contains(where: { $0.contains("Tailscale offline") }))
+        XCTAssertTrue(hints.messages.contains(where: { $0.contains("private probes paused") }))
+    }
+
+    func testCoolifyCloudReachableWithoutTailscale() {
+        let cloud = URL(string: "https://app.coolify.io")!
+        XCTAssertTrue(PulseEngine.coolifyReachableWithoutTailscale(baseURL: cloud))
+        XCTAssertTrue(PulseEngine.canReachCoolify(baseURL: cloud, tailscaleUp: false))
+    }
+
+    func testSelfHostedCoolifyNeedsTailscale() {
+        let selfHosted = URL(string: "http://100.64.0.1:8000")!
+        XCTAssertFalse(PulseEngine.coolifyReachableWithoutTailscale(baseURL: selfHosted))
+        XCTAssertFalse(PulseEngine.canReachCoolify(baseURL: selfHosted, tailscaleUp: false))
+        XCTAssertTrue(PulseEngine.canReachCoolify(baseURL: selfHosted, tailscaleUp: true))
     }
 
     private func exampleConfigURL() -> URL {
