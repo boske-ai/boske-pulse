@@ -3,39 +3,29 @@
 ## One command
 
 ```bash
-cd ~/src/boske-pulse   # or boske/boske-pulse before extract
+cd ~/src/boske-pulse
 make setup
 open BoskePulse.xcodeproj
 ```
 
-`make setup` copies `Config/boske-production.json` if missing, runs `xcodegen`, bundles config into the app automatically.
+`make setup` copies `Config/boske-production.json` from the example if missing, runs `xcodegen`, and bundles config into the app.
 
-## 1. Get the code
-
-```bash
-cd ~/src/boske
-git fetch origin
-git checkout cursor/boske-pulse-scaffold-43ac
-```
-
-## 2. Extract to sibling repo (Option A)
+## Clone (new machine)
 
 ```bash
 cd ~/src
-cp -R boske/boske-pulse ./boske-pulse
+git clone git@github.com:boske-ai/boske-pulse.git
 cd boske-pulse
-git init -b main && git add . && git commit -m "initial boske pulse"
-gh repo create boske-ai/boske-pulse --private --source=. --push
 ```
 
-## 3. Prerequisites
+## Prerequisites
 
 ```bash
 xcode-select --install          # if needed
 brew install xcodegen tailscale
 ```
 
-## 4. Build + run
+## Build + run
 
 ```bash
 make setup                      # config + xcodegen
@@ -52,7 +42,7 @@ In Xcode:
 make test                       # swift test in BoskePulseCore
 ```
 
-## 5. Credentials
+## Credentials
 
 **Boske Pulse → Settings** (⌘,):
 
@@ -65,7 +55,7 @@ make test                       # swift test in BoskePulseCore
 
 **Save to Keychain** — tokens never touch disk as plaintext.
 
-## 6. Desktop widget
+## Desktop widget
 
 After first successful sync:
 
@@ -80,10 +70,8 @@ After first successful sync:
 | B | Run app — public health (example.dev, llm, search) |
 | C | Settings → Coolify + Hetzner tokens |
 | D | Tailscale on Mac + servers |
-| E | Coolify migration (search + LLM) — see boske plan |
+| E | Coolify migration (search + LLM) — see boske infra plans |
 | F | Telegram alerts |
-
-Ops plan: `boske/docs/work/active/2026-06-17-boske-pulse/plan.md`
 
 ## Troubleshooting
 
