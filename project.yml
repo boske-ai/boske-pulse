@@ -10,6 +10,8 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: Apple Development
 
 packages:
   BoskePulseCore:
@@ -29,6 +31,8 @@ targets:
         optional: true
     dependencies:
       - package: BoskePulseCore
+      - target: BoskePulseWidget
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: eu.canopystudio.boske.pulse
@@ -52,7 +56,6 @@ targets:
       - BoskePulseWidget
     dependencies:
       - package: BoskePulseCore
-      - target: BoskePulse
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: eu.canopystudio.boske.pulse.widget
