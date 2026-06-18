@@ -9,7 +9,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var snapshot: ProductionSnapshot?
     @Published private(set) var config: ProductionConfig?
     @Published private(set) var configError: String?
+    @Published private(set) var configSourcePath: String?
     @Published private(set) var operatorHints: OperatorHints = .none
+    @Published private(set) var resolvedServerConfigs: [String: ServerConfig] = [:]
     @Published private(set) var isRefreshing = false
     @Published var coolifyBaseURL: String = ""
     @Published var coolifyToken: String = ""
@@ -26,6 +28,7 @@ final class AppModel: ObservableObject {
 
     private var engine: PulseEngine?
     private var loopTask: Task<Void, Never>?
+    private let credentialsStore = LiveCredentialsStore()
     private let keychain = KeychainService()
     private let snapshotStore = SnapshotStore(appGroupIdentifier: "group.eu.canopystudio.boske.pulse")
     private let notificationDelegate = NotificationDelegate()
@@ -49,20 +52,26 @@ final class AppModel: ObservableObject {
     }
 
     func serverConfig(for id: String) -> ServerConfig? {
-        config?.servers.first(where: { $0.id == id })
+        if let resolved = resolvedServerConfigs[id] {
+            return resolved
+        }
+        return config?.servers.first(where: { $0.id == id })
     }
 
     func loadConfig() {
         configError = nil
         guard let url = ConfigLoader.defaultConfigURL(bundle: .main) else {
+            configSourcePath = nil
             configError = "Config not found — run make setup from the repo root, then rebuild in Xcode"
             return
         }
         do {
             config = try ConfigLoader.load(from: url)
+            configSourcePath = url.path
             configError = nil
             rebuildEngine()
         } catch {
+            configSourcePath = url.path
             configError = "Config error: \(error.localizedDescription)"
         }
     }
@@ -101,7 +110,8 @@ final class AppModel: ObservableObject {
         let client = LiveCoolifyClient(baseURL: apiBase, token: coolifyToken)
         do {
             let servers = try await client.listServers()
-            coolifyTestResult = "Connected — \(servers.count) server(s) in Coolify"
+            let names = servers.map(\.name).sorted().joined(separator: ", ")
+            coolifyTestResult = "Connected — \(servers.count) server(s): \(names)"
         } catch {
             coolifyTestResult = "Failed — \(error.localizedDescription)"
         }
@@ -119,8 +129,9 @@ final class AppModel: ObservableObject {
 
         let client = LiveHetznerClient(token: hetznerToken)
         do {
-            let names = try await client.listServerNames()
-            hetznerTestResult = "Connected — \(names.count) server(s) in project"
+            let hosts = try await client.listHosts()
+            let names = hosts.map(\.name).sorted().joined(separator: ", ")
+            hetznerTestResult = "Connected — \(hosts.count) server(s): \(names)"
         } catch {
             hetznerTestResult = "Failed — \(error.localizedDescription)"
         }
@@ -143,8 +154,16 @@ final class AppModel: ObservableObject {
 
     func copySSH(for serverID: String) {
         guard let server = serverConfig(for: serverID) else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(server.links.ssh, forType: .string)
+        PulseClipboard.copy(server.links.ssh)
+    }
+
+    func copyServerSummary(for serverID: String) {
+        guard let server = snapshot?.servers.first(where: { $0.id == serverID }) else { return }
+        PulseClipboard.copy(ServerCopyFormatter.text(for: server, config: serverConfig(for: serverID)))
+    }
+
+    func copyText(_ text: String) {
+        PulseClipboard.copy(text)
     }
 
     func openHetzner(for serverID: String? = nil) {
@@ -202,20 +221,28 @@ final class AppModel: ObservableObject {
 
     private func rebuildEngine() {
         guard let config else { return }
-        let credentials = PulseCredentials(
-            coolifyBaseURL: URL(string: coolifyBaseURL),
-            coolifyToken: coolifyToken.isEmpty ? nil : coolifyToken,
-            hetznerToken: hetznerToken.isEmpty ? nil : hetznerToken,
-            telegramBotToken: telegramBotToken.isEmpty ? nil : telegramBotToken,
-            telegramChatID: telegramChatID.isEmpty ? nil : telegramChatID
-        )
+        syncCredentialsStore()
         engine = PulseEngine(
             config: config,
-            credentialsStore: InMemoryCredentialsStore(credentials: credentials),
+            credentialsStore: credentialsStore,
             tailscale: TailscaleCLIReachability(),
             onAlert: { [weak self] snap, message in
                 await self?.handleAlert(snapshot: snap, message: message)
             }
+        )
+    }
+
+    private func syncCredentialsStore() {
+        credentialsStore.update(currentCredentials())
+    }
+
+    private func currentCredentials() -> PulseCredentials {
+        PulseCredentials(
+            coolifyBaseURL: URL(string: coolifyBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)),
+            coolifyToken: coolifyToken.isEmpty ? nil : coolifyToken,
+            hetznerToken: hetznerToken.isEmpty ? nil : hetznerToken,
+            telegramBotToken: telegramBotToken.isEmpty ? nil : telegramBotToken,
+            telegramChatID: telegramChatID.isEmpty ? nil : telegramChatID
         )
     }
 
@@ -231,9 +258,12 @@ final class AppModel: ObservableObject {
 
     private func tick(force: Bool) async {
         guard let engine else { return }
+        syncCredentialsStore()
         let snap = await engine.refresh(force: force)
         snapshot = snap
         operatorHints = await engine.operatorHints
+        let resolved = await engine.resolvedServers
+        resolvedServerConfigs = Dictionary(resolved.map { ($0.id, $0.asServerConfig()) }, uniquingKeysWith: { first, _ in first })
         try? snapshotStore.write(snap)
         WidgetCenter.shared.reloadAllTimelines()
     }

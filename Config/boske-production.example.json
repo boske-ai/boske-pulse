@@ -3,68 +3,58 @@
   "privateNetwork": "example-net",
   "privateNetworkCIDR": "10.99.0.0/16",
   "appGroupIdentifier": "group.eu.canopystudio.boske.pulse",
-  "servers": [
+  "discovery": {
+    "enabled": true,
+    "preferCoolify": true,
+    "includeUnmatchedHetzner": true
+  },
+  "servers": [],
+  "serverOverlays": [
     {
-      "id": "example-website",
-      "name": "example-website",
-      "role": "Coolify — website, leases, Stripe",
-      "hetznerServerName": "example-website",
-      "publicIPv4": "203.0.113.20",
-      "privateIP": "10.99.0.3",
-      "region": "hel1",
-      "coolifyManaged": true,
+      "match": { "coolifyName": "portfolio-sites", "hetznerName": "example-website" },
+      "role": "Coolify — canopy portfolio sites"
+    },
+    {
+      "match": { "coolifyName": "example-website", "hetznerName": "example-website" },
+      "role": "Coolify — example.dev website",
       "publicEndpoints": [
-        { "id": "website", "label": "example.dev", "url": "https://example.dev/", "expectStatus": 200 },
+        { "id": "website", "label": "example.dev", "url": "https://example.dev/", "expectStatus": 200 }
+      ]
+    },
+    {
+      "match": { "coolifyName": "example-app-01", "hetznerName": "examp-app-01" },
+      "role": "Cloud API",
+      "publicEndpoints": [
         { "id": "app", "label": "app.example.dev", "url": "https://app.example.dev/api/health", "expectStatus": 200 }
       ],
-      "links": {
-        "hetzner": "https://console.hetzner.cloud/",
-        "ssh": "ssh deploy@203.0.113.20"
-      }
+      "manualStack": [
+        { "name": "boske-app-api", "role": "api", "linkedEndpointID": "app" },
+        { "name": "boske-app-postgres", "role": "postgres" },
+        { "name": "boske-app-redis", "role": "redis" },
+        { "name": "boske-app-meili", "role": "meilisearch" },
+        { "name": "boske-app-minio", "role": "minio" },
+        { "name": "boske-app-vectordb", "role": "pgvector" },
+        { "name": "boske-app-rag-api", "role": "rag" },
+        { "name": "boske-app-stt", "role": "stt" }
+      ]
     },
     {
-      "id": "example-data-01",
-      "name": "example-data-01",
+      "match": { "hetznerName": "example-data-01" },
       "role": "Licensing PG + data stack",
-      "hetznerServerName": "example-data-01",
-      "publicIPv4": "203.0.113.32",
-      "privateIP": "10.99.0.2",
-      "region": "hel1",
-      "coolifyManaged": true,
       "privateProbes": [
         { "id": "licensing-pg", "label": "Postgres", "host": "10.99.0.2", "port": 5433 }
-      ],
-      "links": {
-        "hetzner": "https://console.hetzner.cloud/",
-        "ssh": "ssh deploy@203.0.113.32"
-      }
+      ]
     },
     {
-      "id": "example-search-01",
-      "name": "example-search-01",
+      "match": { "hetznerName": "example-search-01" },
       "role": "SearXNG + Valkey + Caddy",
-      "hetznerServerName": "example-search-01",
-      "publicIPv4": "203.0.113.34",
-      "privateIP": "10.99.0.4",
-      "region": "nbg1",
-      "coolifyManaged": true,
       "publicEndpoints": [
         { "id": "search", "label": "search.example.dev", "url": "https://search.example.dev/", "expectStatus": 200 }
-      ],
-      "links": {
-        "hetzner": "https://console.hetzner.cloud/",
-        "ssh": "ssh deploy@203.0.113.34"
-      }
+      ]
     },
     {
-      "id": "example-llm-01",
-      "name": "example-llm-01",
+      "match": { "hetznerName": "example-llm-01" },
       "role": "LLM proxy + Caddy",
-      "hetznerServerName": "example-llm-01",
-      "publicIPv4": "203.0.113.31",
-      "privateIP": "10.99.0.5",
-      "region": "fsn1",
-      "coolifyManaged": true,
       "publicEndpoints": [
         {
           "id": "llm-healthz",
@@ -73,11 +63,7 @@
           "expectStatus": 200,
           "expectBodyContains": "\"ok\":true"
         }
-      ],
-      "links": {
-        "hetzner": "https://console.hetzner.cloud/",
-        "ssh": "ssh deploy@203.0.113.31"
-      }
+      ]
     }
   ],
   "coolify": {

@@ -19,6 +19,11 @@ else
   echo "✓ Config/boske-production.json already exists"
 fi
 
+APP_SUPPORT="$HOME/Library/Application Support/Boske Pulse"
+mkdir -p "$APP_SUPPORT"
+cp Config/boske-production.json "$APP_SUPPORT/boske-production.json"
+echo "✓ Synced config to $APP_SUPPORT/boske-production.json (app reads this first)"
+
 if ! command -v xcodegen >/dev/null 2>&1; then
   echo "Install XcodeGen: brew install xcodegen"
   exit 1

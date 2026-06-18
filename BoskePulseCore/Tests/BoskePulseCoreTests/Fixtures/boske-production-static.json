@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "privateNetwork": "example-net",
+  "privateNetworkCIDR": "10.99.0.0/16",
+  "appGroupIdentifier": "group.test",
+  "discovery": { "enabled": false },
+  "servers": [
+    {
+      "id": "example-website",
+      "name": "example-website",
+      "role": "Website",
+      "hetznerServerName": "example-website",
+      "publicIPv4": "203.0.113.20",
+      "privateIP": "10.99.0.3",
+      "region": "hel1",
+      "coolifyManaged": true,
+      "publicEndpoints": [
+        { "id": "website", "label": "example.dev", "url": "https://example.dev/", "expectStatus": 200 }
+      ],
+      "links": {
+        "hetzner": "https://console.hetzner.cloud/",
+        "ssh": "ssh deploy@203.0.113.20"
+      }
+    }
+  ],
+  "coolify": { "dashboardPath": "/", "apiPath": "/api/v1" },
+  "alerts": { "debounceSeconds": 300, "flapIgnoreSeconds": 120, "telegramEnabled": false },
+  "polling": { "publicHealthSeconds": 30, "coolifySeconds": 60, "hetznerSeconds": 120, "privateProbeSeconds": 60 }
+}

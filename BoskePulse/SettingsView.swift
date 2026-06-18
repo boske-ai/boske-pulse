@@ -46,8 +46,8 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Hetzner Cloud (optional — CPU/RAM only)") {
-                Text("Not needed for websites or containers. Coolify Sentinel metrics may replace this later.")
+            Section("Hetzner Cloud (required for non-Coolify servers)") {
+                Text("Needed to discover example-data-01, example-search-01, example-llm-01, etc. Click Save to Keychain after entering the token.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 SecureField("Read-only API token", text: $model.hetznerToken)

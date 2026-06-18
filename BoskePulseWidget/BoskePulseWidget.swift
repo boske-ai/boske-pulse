@@ -78,7 +78,7 @@ struct PulseWidgetEntryView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(entry.snapshot?.smokeSummary ?? "Awaiting sync")
                 .font(.caption)
-            ForEach((entry.snapshot?.servers ?? []).prefix(4)) { server in
+            ForEach(entry.snapshot?.servers ?? []) { server in
                 HStack {
                     Text(server.name)
                         .font(.system(.caption, design: .monospaced))
