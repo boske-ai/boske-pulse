@@ -7,8 +7,14 @@ struct ProductionDashboardView: View {
         case window
     }
 
+    enum Surface {
+        case menuBarPopover
+        case pinnedWindow
+    }
+
     @ObservedObject var model: AppModel
     let style: Style
+    var surface: Surface = .menuBarPopover
 
     private var isWindow: Bool { style == .window }
 
@@ -23,18 +29,20 @@ struct ProductionDashboardView: View {
     }
 
     private var windowLayout: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 12) {
-                dashboardHeader(expanded: true)
-                alertsSection
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 16)
-            .padding(.bottom, 12)
-
-            serverGrid(columns: PulseLayout.windowColumns, compact: false)
+        ScrollView(.vertical, showsIndicators: true) {
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 10) {
+                    dashboardHeader(expanded: true)
+                    alertsSection
+                }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
+
+                serverGrid(columns: PulseLayout.windowColumns, compact: false)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(BoskeTheme.background)
@@ -42,17 +50,40 @@ struct ProductionDashboardView: View {
     }
 
     private var menuBarLayout: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            dashboardHeader(expanded: false)
-            alertsSection
-            serverGrid(columns: PulseLayout.menuBarColumns, compact: true)
+        VStack(spacing: 0) {
+            compactTopBar
+            DividerLine()
+
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(alignment: .leading, spacing: 10) {
+                    alertsSection
+                    serverGrid(columns: PulseLayout.menuBarColumns, compact: true)
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 10)
+                .padding(.bottom, 12)
+                .frame(width: PulseLayout.popoverWidth - 24)
+            }
+
             DividerLine()
             menuBarFooter
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .background(BoskeTheme.background)
         }
-        .padding(14)
-        .frame(width: 420)
+        .frame(width: PulseLayout.popoverWidth)
+        .frame(minHeight: 440, maxHeight: 740)
         .background(BoskeTheme.background)
         .preferredColorScheme(.dark)
+    }
+
+    private var compactTopBar: some View {
+        dashboardHeader(expanded: false)
+            .padding(.horizontal, 14)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(BoskeTheme.background)
     }
 
     @ViewBuilder
@@ -64,12 +95,11 @@ struct ProductionDashboardView: View {
                 isRefreshing: model.isRefreshing,
                 expanded: expanded
             )
-            if let summary = model.operatorHints.discoverySummary {
+            if let summary = model.operatorHints.discoverySummary, isWindow {
                 Text(summary)
                     .font(.caption)
                     .foregroundStyle(BoskeTheme.dim)
                     .lineLimit(1)
-                    .copyOnClick(summary)
             }
         }
     }
@@ -89,13 +119,14 @@ struct ProductionDashboardView: View {
     @ViewBuilder
     private func serverGrid(columns: Int, compact: Bool) -> some View {
         if let servers = model.snapshot?.servers, !servers.isEmpty {
-            let gridItems = Array(repeating: GridItem(.flexible(), spacing: 12), count: columns)
-            LazyVGrid(columns: gridItems, spacing: 12) {
+            let gridItems = Array(repeating: GridItem(.flexible(), spacing: compact ? 10 : 12), count: columns)
+            LazyVGrid(columns: gridItems, spacing: compact ? 10 : 12) {
                 ForEach(servers) { server in
                     PulseServerTile(
                         server: server,
                         config: model.serverConfig(for: server.id),
-                        compact: compact
+                        compact: compact,
+                        onOpenURL: { model.openEndpoint($0) }
                     )
                     .contextMenu { serverContextMenu(for: server) }
                 }
@@ -111,8 +142,11 @@ struct ProductionDashboardView: View {
     }
 
     private var menuBarFooter: some View {
-        HStack(spacing: 16) {
-            footerLink("Open Dashboard") { ProductionWindowPresenter.show(model: model) }
+        HStack(spacing: 14) {
+            if surface == .menuBarPopover {
+                footerLink("Pin") { DashboardPresentation.openCompactWindow(model: model) }
+            }
+            footerLink("Full") { DashboardPresentation.openMainWindow(model: model) }
             footerLink("Refresh") { Task { await model.refreshNow() } }
                 .disabled(model.isRefreshing || model.config == nil)
             footerLink("Settings") { SettingsWindowPresenter.show(model: model) }
@@ -122,9 +156,13 @@ struct ProductionDashboardView: View {
     }
 
     private func footerLink(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(title, action: action)
-            .buttonStyle(.plain)
-            .foregroundStyle(BoskeTheme.accent)
+        Button(action: action) {
+            Text(title)
+                .padding(.vertical, 4)
+                .padding(.horizontal, 2)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(BoskeTheme.accent)
     }
 
     @ViewBuilder

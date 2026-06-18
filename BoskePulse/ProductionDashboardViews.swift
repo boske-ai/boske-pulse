@@ -4,11 +4,28 @@ import SwiftUI
 // MARK: - Layout & theme
 
 enum PulseLayout {
-    static let tileHeight: CGFloat = 228
-    static let tileHeightCompact: CGFloat = 132
+    static let tileHeight: CGFloat = 236
+    static let tileHeightCompactMin: CGFloat = 92
     static let tileCorner: CGFloat = 12
     static let windowColumns = 3
-    static let menuBarColumns = 2
+    static let menuBarColumns = 1
+    static let popoverWidth: CGFloat = 400
+}
+
+enum PulseDisplayNames {
+    static func container(_ name: String, compact: Bool) -> String {
+        let maxLength = compact ? 18 : 28
+        guard name.count > maxLength else { return name }
+        if name.hasPrefix("service-"), name.count > 20 {
+            return "service"
+        }
+        if compact {
+            return String(name.prefix(maxLength - 1)) + "…"
+        }
+        let head = name.prefix(14)
+        let tail = name.suffix(8)
+        return "\(head)…\(tail)"
+    }
 }
 
 enum BoskeDensity {
@@ -106,7 +123,6 @@ struct ProductionHeaderView: View {
                         .font(.caption)
                         .foregroundStyle(BoskeTheme.muted)
                         .lineLimit(1)
-                        .copyOnClick(snapshot?.smokeSummary ?? "")
                 }
             }
 
@@ -121,16 +137,24 @@ struct ProductionHeaderView: View {
     }
 
     private var menuBarHeader: some View {
-        HStack(spacing: 10) {
-            Circle()
-                .fill(snapshot.map { BoskeTheme.health($0.overall) } ?? BoskeTheme.muted)
-                .frame(width: 8, height: 8)
-            Text("Boske Pulse")
-                .font(.system(.subheadline, design: .rounded).weight(.semibold))
-            Spacer()
-            Text("\(serverCount) hosts")
-                .font(.caption)
-                .foregroundStyle(BoskeTheme.muted)
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(snapshot.map { BoskeTheme.health($0.overall) } ?? BoskeTheme.muted)
+                    .frame(width: 8, height: 8)
+                Text("Boske Pulse")
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .foregroundStyle(BoskeTheme.text)
+                Spacer()
+                Text("\(serverCount) hosts")
+                    .font(.caption)
+                    .foregroundStyle(BoskeTheme.muted)
+            }
+            Text(snapshot?.smokeSummary ?? (isRefreshing ? "Refreshing…" : "Awaiting sync"))
+                .font(.caption2)
+                .foregroundStyle(BoskeTheme.dim)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -160,45 +184,113 @@ struct TopologyStrip: View {
 
 struct StatusBadge: View {
     let health: OverallHealth
-    var style: Style = .compact
-    enum Style { case compact, prominent, hero }
+    var mini: Bool = false
 
     var body: some View {
-        Text(BoskeTheme.healthLabel(health).uppercased())
-            .font(.system(size: 10, weight: .bold))
-            .foregroundStyle(BoskeTheme.health(health))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(BoskeTheme.health(health).opacity(0.15))
-            .clipShape(Capsule())
+        Group {
+            if mini {
+                Text(miniLabel)
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundStyle(BoskeTheme.health(health))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(BoskeTheme.health(health).opacity(0.15))
+                    .clipShape(Capsule())
+                    .fixedSize()
+            } else {
+                Text(BoskeTheme.healthLabel(health).uppercased())
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(BoskeTheme.health(health))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(BoskeTheme.health(health).opacity(0.15))
+                    .clipShape(Capsule())
+            }
+        }
+    }
+
+    private var miniLabel: String {
+        switch health {
+        case .healthy: "OK"
+        case .degraded: "WARN"
+        case .down: "DOWN"
+        case .unknown: "?"
+        }
     }
 }
 
 // MARK: - Uniform server tile
 
+private struct ExpandChevron: View {
+    let isExpanded: Bool
+
+    var body: some View {
+        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundStyle(BoskeTheme.dim)
+            .frame(width: 14, height: 14)
+    }
+}
+
+private struct FoldToggle: View {
+    let isExpanded: Bool
+    var moreCount: Int? = nil
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(BoskeTheme.accent.opacity(0.9))
+        }
+        .buttonStyle(.plain)
+        .help(isExpanded ? "Show less" : "Show more")
+    }
+
+    private var label: String {
+        if isExpanded { return "Show less" }
+        if let moreCount { return "+\(moreCount) more" }
+        return "Show more"
+    }
+}
+
 struct PulseServerTile: View {
     let server: ServerSnapshot
     let config: ServerConfig?
     var compact: Bool = false
+    var onOpenURL: ((String) -> Void)? = nil
+
+    @State private var detailsExpanded = false
+    @State private var endpointsExpanded = false
+    @State private var domainsExpanded = false
+    @State private var containersExpanded = false
+
+    private var isAnyExpanded: Bool {
+        detailsExpanded || endpointsExpanded || domainsExpanded || containersExpanded
+    }
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 0) {
             BoskeTheme.health(server.overall)
                 .frame(width: 4)
 
-            VStack(alignment: .leading, spacing: compact ? 5 : 6) {
+            VStack(alignment: .leading, spacing: compact ? 6 : 8) {
                 header
-                if !compact { metaLine }
+                metaLine
                 metricsRow
-                if !server.endpointChecks.isEmpty { probeLine }
-                if !server.coolifyDomains.isEmpty { domainsLine }
-                containersBlock
+                endpointsSection
+                if shouldShowDomains { domainsSection }
+                containersSection
             }
-            .padding(compact ? 10 : 12)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.horizontal, compact ? 10 : 12)
+            .padding(.vertical, compact ? 10 : 12)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: compact ? PulseLayout.tileHeightCompact : PulseLayout.tileHeight)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: compact && !isAnyExpanded ? PulseLayout.tileHeightCompactMin : nil,
+            alignment: .top
+        )
         .background(BoskeTheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: PulseLayout.tileCorner, style: .continuous))
         .overlay {
@@ -209,16 +301,89 @@ struct PulseServerTile: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top) {
+        HStack(alignment: .center, spacing: 6) {
             Text(server.name)
                 .font(.system(compact ? .caption : .subheadline, design: .monospaced).weight(.semibold))
                 .foregroundStyle(BoskeTheme.text)
                 .lineLimit(1)
-                .copyOnClick(server.name)
-            Spacer(minLength: 4)
-            StatusBadge(health: server.overall)
-                .copyOnClick(server.overall.rawValue)
+                .minimumScaleFactor(compact ? 0.75 : 0.85)
+                .layoutPriority(1)
+            if !compact, serverHasUncertainContainers {
+                Text("?")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(BoskeTheme.amber)
+                    .help("Coolify health detail unknown — host is running")
+            }
+            StatusBadge(health: server.overall, mini: compact)
+            if hasExpandableDetail {
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) { toggleAllSections() }
+                } label: {
+                    ExpandChevron(isExpanded: isAnyExpanded)
+                }
+                .buttonStyle(.plain)
+                .help(isAnyExpanded ? "Collapse all" : "Expand all")
+            }
         }
+    }
+
+    private func toggleAllSections() {
+        if isAnyExpanded {
+            detailsExpanded = false
+            endpointsExpanded = false
+            domainsExpanded = false
+            containersExpanded = false
+        } else {
+            if canExpandDetails { detailsExpanded = true }
+            if canExpandEndpoints { endpointsExpanded = true }
+            if canExpandDomains { domainsExpanded = true }
+            if canExpandContainers { containersExpanded = true }
+        }
+    }
+
+    private func toggleSection(_ expanded: inout Bool) {
+        withAnimation(.easeOut(duration: 0.2)) { expanded.toggle() }
+    }
+
+    private var visibleContainerLimit: Int { compact ? 2 : 6 }
+
+    private var canExpandDetails: Bool {
+        (server.privateIP?.isEmpty == false)
+            || (config?.links.ssh.isEmpty == false)
+            || (compact && (server.netInMbps != nil || server.ramPercent != nil))
+            || (!compact && server.ramPercent != nil)
+    }
+
+    private var canExpandEndpoints: Bool {
+        server.endpointChecks.count > 1
+            || !server.privateProbes.isEmpty
+            || endpointChecksHaveURLs
+    }
+
+    private var canExpandDomains: Bool {
+        server.coolifyDomains.count > domainPreviewCount
+    }
+
+    private var canExpandContainers: Bool {
+        !server.containers.isEmpty && displayedContainers.count > visibleContainerLimit
+    }
+
+    private var hasExpandableDetail: Bool {
+        canExpandDetails || canExpandEndpoints || canExpandDomains || canExpandContainers
+    }
+
+    private var endpointChecksHaveURLs: Bool {
+        server.endpointChecks.contains { endpointURL(for: $0) != nil }
+    }
+
+    private var shouldShowDomains: Bool {
+        guard !server.coolifyDomains.isEmpty else { return false }
+        if !compact { return true }
+        return server.endpointChecks.isEmpty || server.coolifyDomains.count > 1
+    }
+
+    private var serverHasUncertainContainers: Bool {
+        server.containers.contains(where: \.uncertainHealth)
     }
 
     private var metaLine: some View {
@@ -229,109 +394,290 @@ struct PulseServerTile: View {
             }
             if let ip = config?.publicIPv4, !ip.isEmpty {
                 if server.region != nil { Text("·").foregroundStyle(BoskeTheme.dim) }
-                Text(ip)
+                CopyableValue(text: ip)
+            }
+            if detailsExpanded, let privateIP = server.privateIP, !privateIP.isEmpty {
+                Text("·").foregroundStyle(BoskeTheme.dim)
+                CopyableValue(text: privateIP, color: BoskeTheme.dim)
+            }
+            if detailsExpanded, let ssh = config?.links.ssh, !ssh.isEmpty {
+                Text("·").foregroundStyle(BoskeTheme.dim)
+                CopyableValue(text: ssh, color: BoskeTheme.dim)
+            }
+            if canExpandDetails {
+                Button {
+                    toggleSection(&detailsExpanded)
+                } label: {
+                    ExpandChevron(isExpanded: detailsExpanded)
+                }
+                .buttonStyle(.plain)
+                .help(detailsExpanded ? "Hide details" : "Show details")
+            }
+        }
+        .font(.caption2)
+        .lineLimit(detailsExpanded ? nil : 1)
+    }
+
+    private var metricsRow: some View {
+        Group {
+            if compact {
+                HStack(spacing: 14) {
+                    compactMetric(label: "CPU", value: server.cpuPercent.map { String(format: "%.0f%%", $0) } ?? "—")
+                    compactMetric(label: "Disk", value: diskLabel)
+                    if detailsExpanded {
+                        compactMetric(
+                            label: "Net",
+                            value: server.netInMbps.map { String(format: "%.1f Mb/s", $0) } ?? "—"
+                        )
+                        if let ram = server.ramPercent {
+                            compactMetric(label: "RAM", value: String(format: "%.0f%%", ram))
+                        }
+                    }
+                }
+            } else {
+                HStack(spacing: 12) {
+                    LiveMetricChip(label: "CPU", value: server.cpuPercent, format: .percent)
+                    LiveMetricChip(label: "Disk", value: server.diskMBps, format: .throughput(unit: "MB/s"))
+                    LiveMetricChip(label: "Net", value: server.netInMbps, format: .throughput(unit: "Mb/s"))
+                    if detailsExpanded, let ram = server.ramPercent {
+                        LiveMetricChip(label: "RAM", value: ram, format: .percent)
+                    }
+                }
+            }
+        }
+    }
+
+    private var diskLabel: String {
+        guard let disk = server.diskMBps else { return "—" }
+        return disk <= 0.005 ? "idle" : String(format: "%.1f MB/s", disk)
+    }
+
+    private func compactMetric(label: String, value: String) -> some View {
+        HStack(spacing: 4) {
+            Text(label)
+                .foregroundStyle(BoskeTheme.dim)
+            Text(value)
+                .foregroundStyle(BoskeTheme.text)
+                .monospacedDigit()
+        }
+        .font(.caption2)
+    }
+
+    @ViewBuilder
+    private var endpointsSection: some View {
+        if !server.endpointChecks.isEmpty || !server.privateProbes.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                if endpointsExpanded {
+                    ForEach(server.endpointChecks) { check in
+                        expandedEndpointRow(check)
+                    }
+                    ForEach(server.privateProbes) { probe in
+                        expandedPrivateProbeRow(probe)
+                    }
+                    if canExpandEndpoints {
+                        FoldToggle(isExpanded: true) {
+                            toggleSection(&endpointsExpanded)
+                        }
+                    }
+                } else {
+                    if let check = server.endpointChecks.first {
+                        collapsedEndpointRow(check)
+                    } else if let probe = server.privateProbes.first {
+                        collapsedPrivateProbeRow(probe)
+                    }
+                    if canExpandEndpoints {
+                        let hidden = server.endpointChecks.count + server.privateProbes.count - 1
+                        FoldToggle(isExpanded: false, moreCount: hidden > 0 ? hidden : nil) {
+                            toggleSection(&endpointsExpanded)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func collapsedEndpointRow(_ check: EndpointCheckResult) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(BoskeTheme.check(check.status))
+                .frame(width: 6, height: 6)
+            Text(check.label)
+                .foregroundStyle(BoskeTheme.text)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            if let ms = check.latencyMs {
+                Text("\(ms)ms")
                     .foregroundStyle(BoskeTheme.muted)
             }
         }
         .font(.caption2)
-        .lineLimit(1)
-        .copyOnClick(metaCopyText)
-    }
-
-    private var metaCopyText: String {
-        [server.region?.uppercased(), config?.publicIPv4].compactMap { value in
-            guard let value, !value.isEmpty else { return nil }
-            return value
-        }.joined(separator: " · ")
-    }
-
-    private var metricsRow: some View {
-        HStack(spacing: compact ? 8 : 12) {
-            LiveMetricChip(label: "CPU", value: server.cpuPercent, format: .percent)
-            LiveMetricChip(label: "Disk", value: server.diskMBps, format: .throughput(unit: "MB/s"))
-            if !compact {
-                LiveMetricChip(label: "Net", value: server.netInMbps, format: .throughput(unit: "Mb/s"))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if canExpandEndpoints {
+                toggleSection(&endpointsExpanded)
             }
         }
-        .copyOnClick(metricsCopyText)
     }
 
-    private var metricsCopyText: String {
-        var parts: [String] = []
-        if let cpu = server.cpuPercent {
-            parts.append(String(format: "CPU %.0f%%", cpu))
+    private func expandedEndpointRow(_ check: EndpointCheckResult) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(BoskeTheme.check(check.status))
+                    .frame(width: 6, height: 6)
+                Text(check.label)
+                    .foregroundStyle(BoskeTheme.text)
+                Spacer(minLength: 0)
+                if let http = check.httpStatus {
+                    Text("\(http)")
+                        .foregroundStyle(BoskeTheme.dim)
+                }
+                if let ms = check.latencyMs {
+                    Text("\(ms)ms")
+                        .foregroundStyle(BoskeTheme.muted)
+                }
+            }
+            .font(.caption2)
+            if let url = endpointURL(for: check) {
+                endpointURLRow(url)
+            }
+            if let message = check.message, !message.isEmpty {
+                Text(message)
+                    .font(.caption2)
+                    .foregroundStyle(BoskeTheme.dim)
+                    .lineLimit(2)
+            }
         }
-        if let disk = server.diskMBps {
-            parts.append(String(format: "Disk %.2f MB/s", disk))
-        }
-        if let net = server.netInMbps {
-            parts.append(String(format: "Net %.2f Mb/s", net))
-        }
-        return parts.joined(separator: " · ")
     }
 
-    private var probeLine: some View {
-        Group {
-            if let check = server.endpointChecks.first {
+    private func collapsedPrivateProbeRow(_ probe: PrivateProbeResult) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(BoskeTheme.check(probe.status))
+                .frame(width: 6, height: 6)
+            Text(probe.label)
+                .foregroundStyle(BoskeTheme.text)
+                .lineLimit(1)
+            Spacer()
+            Text(probe.message ?? "private")
+                .foregroundStyle(BoskeTheme.dim)
+                .lineLimit(1)
+        }
+        .font(.caption2)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if canExpandEndpoints {
+                toggleSection(&endpointsExpanded)
+            }
+        }
+    }
+
+    private func expandedPrivateProbeRow(_ probe: PrivateProbeResult) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(BoskeTheme.check(probe.status))
+                .frame(width: 6, height: 6)
+            Text(probe.label)
+                .foregroundStyle(BoskeTheme.text)
+            Spacer()
+            Text(probe.message ?? "private")
+                .foregroundStyle(BoskeTheme.dim)
+                .lineLimit(2)
+        }
+        .font(.caption2)
+    }
+
+    private func endpointURLRow(_ url: String) -> some View {
+        HStack(spacing: 6) {
+            CopyableValue(text: url, color: BoskeTheme.dim)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 0)
+            if onOpenURL != nil {
+                Button {
+                    onOpenURL?(url)
+                } label: {
+                    Image(systemName: "arrow.up.forward.square")
+                        .font(.caption2)
+                        .foregroundStyle(BoskeTheme.accent)
+                }
+                .buttonStyle(.plain)
+                .help("Open in browser")
+            }
+        }
+    }
+
+    private func endpointURL(for check: EndpointCheckResult) -> String? {
+        guard let url = config?.publicEndpoints.first(where: { $0.id == check.id })?.url,
+              !url.isEmpty else { return nil }
+        return url
+    }
+
+    private var domainPreviewCount: Int { compact ? 2 : 3 }
+
+    @ViewBuilder
+    private var domainsSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if domainsExpanded {
+                ForEach(server.coolifyDomains, id: \.self) { domain in
+                    domainRow(domain)
+                }
+                if canExpandDomains {
+                    FoldToggle(isExpanded: true) {
+                        toggleSection(&domainsExpanded)
+                    }
+                }
+            } else {
                 HStack(spacing: 6) {
-                    Circle()
-                        .fill(BoskeTheme.check(check.status))
-                        .frame(width: 6, height: 6)
-                    Text(check.label)
-                        .foregroundStyle(BoskeTheme.text)
+                    Text("domains")
+                        .foregroundStyle(BoskeTheme.dim)
+                    Text(server.coolifyDomains.prefix(domainPreviewCount).joined(separator: ", "))
+                        .foregroundStyle(BoskeTheme.muted)
                         .lineLimit(1)
                     Spacer(minLength: 0)
-                    if let ms = check.latencyMs {
-                        Text("\(ms)ms")
-                            .foregroundStyle(BoskeTheme.muted)
+                    if canExpandDomains {
+                        FoldToggle(
+                            isExpanded: false,
+                            moreCount: server.coolifyDomains.count - domainPreviewCount
+                        ) {
+                            toggleSection(&domainsExpanded)
+                        }
                     }
                 }
                 .font(.caption2)
-                .copyOnClick(probeCopyText(for: check))
-            } else if let probe = server.privateProbes.first {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(BoskeTheme.check(probe.status))
-                        .frame(width: 6, height: 6)
-                    Text(probe.label)
-                        .foregroundStyle(BoskeTheme.text)
-                        .lineLimit(1)
-                    Spacer()
-                    Text(probe.message ?? "private")
-                        .foregroundStyle(BoskeTheme.dim)
-                        .lineLimit(1)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if canExpandDomains {
+                        toggleSection(&domainsExpanded)
+                    }
                 }
-                .font(.caption2)
-                .copyOnClick("\(probe.label) \(probe.message ?? "private")")
             }
         }
     }
 
-    private func probeCopyText(for check: EndpointCheckResult) -> String {
-        if let ms = check.latencyMs {
-            return "\(check.label) \(ms)ms"
-        }
-        return check.label
-    }
-
-    private var domainsLine: some View {
+    private func domainRow(_ domain: String) -> some View {
         HStack(spacing: 6) {
-            Text("domains")
-                .foregroundStyle(BoskeTheme.dim)
-            Text(server.coolifyDomains.prefix(compact ? 2 : 3).joined(separator: ", "))
-                .foregroundStyle(BoskeTheme.muted)
+            CopyableValue(text: domain)
                 .lineLimit(1)
-            if server.coolifyDomains.count > (compact ? 2 : 3) {
-                Text("+\(server.coolifyDomains.count - (compact ? 2 : 3))")
-                    .foregroundStyle(BoskeTheme.dim)
+            Spacer(minLength: 0)
+            if onOpenURL != nil {
+                Button {
+                    onOpenURL?("https://\(domain)")
+                } label: {
+                    Image(systemName: "arrow.up.forward.square")
+                        .font(.caption2)
+                        .foregroundStyle(BoskeTheme.accent)
+                }
+                .buttonStyle(.plain)
+                .help("Open https://\(domain)")
             }
         }
         .font(.caption2)
-        .copyOnClick(server.coolifyDomains.joined(separator: ", "))
     }
 
-    private var containersBlock: some View {
-        VStack(alignment: .leading, spacing: 4) {
+    @ViewBuilder
+    private var containersSection: some View {
+        VStack(alignment: .leading, spacing: compact ? 5 : 6) {
             HStack {
                 Label(
                     server.containersTotal > 0
@@ -348,86 +694,157 @@ struct PulseServerTile: View {
                         .foregroundStyle(coolify ? BoskeTheme.accent : BoskeTheme.amber)
                 }
             }
-            .copyOnClick(containersCopyText)
 
             if server.containers.isEmpty {
-                Text("no services reported")
+                Text(emptyContainersLabel)
                     .font(.caption2)
                     .foregroundStyle(BoskeTheme.dim)
-                    .copyOnClick("no services reported")
+                    .lineLimit(containersExpanded ? nil : (compact ? 2 : 3))
+            } else if containersExpanded {
+                ForEach(displayedContainers) { container in
+                    ContainerRow(container: container, compact: compact, showFullDetails: true)
+                }
+                if canExpandContainers {
+                    FoldToggle(isExpanded: true) {
+                        toggleSection(&containersExpanded)
+                    }
+                }
             } else {
                 ForEach(visibleContainers) { container in
-                    ContainerRow(container: container, compact: compact)
+                    ContainerRow(container: container, compact: compact, showFullDetails: false)
                 }
-                if hiddenContainerCount > 0 {
-                    Text("+\(hiddenContainerCount) more")
-                        .font(.caption2)
-                        .foregroundStyle(BoskeTheme.dim)
-                        .copyOnClick(hiddenContainersCopyText)
+                if canExpandContainers {
+                    FoldToggle(isExpanded: false, moreCount: hiddenContainerCount) {
+                        toggleSection(&containersExpanded)
+                    }
                 }
             }
         }
     }
 
-    private var containersCopyText: String {
-        guard !server.containers.isEmpty else { return "containers: none" }
-        return server.containers
-            .map { "\($0.name)\t\($0.state)\t\($0.image ?? "")" }
-            .joined(separator: "\n")
-    }
-
-    private var hiddenContainersCopyText: String {
-        server.containers.dropFirst(visibleContainers.count)
-            .map(\.name)
-            .joined(separator: "\n")
+    private var displayedContainers: [ContainerTile] {
+        let source = compact
+            ? server.containers.filter { $0.health != .skipped }
+            : server.containers
+        return source.sorted { lhs, rhs in
+            if lhs.uncertainHealth != rhs.uncertainHealth { return lhs.uncertainHealth }
+            if lhs.state.contains("degraded") != rhs.state.contains("degraded") {
+                return lhs.state.contains("degraded")
+            }
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        }
     }
 
     private var visibleContainers: [ContainerTile] {
-        let limit = compact ? 3 : 6
-        return Array(server.containers.prefix(limit))
+        Array(displayedContainers.prefix(visibleContainerLimit))
     }
 
     private var hiddenContainerCount: Int {
-        max(0, server.containers.count - visibleContainers.count)
+        max(0, displayedContainers.count - visibleContainers.count)
+    }
+
+    private var emptyContainersLabel: String {
+        if let role = config?.role, !role.isEmpty {
+            return role
+        }
+        if config?.coolifyManaged == true {
+            return "no Coolify services on this host"
+        }
+        return "compose stack (not in Coolify)"
     }
 }
 
 struct ContainerRow: View {
     let container: ContainerTile
     var compact: Bool = false
+    var showFullDetails: Bool = false
 
     var body: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(BoskeTheme.check(container.health))
-                .frame(width: 6, height: 6)
-            Text(container.name)
-                .font(.system(size: compact ? 10 : 11, design: .monospaced))
-                .foregroundStyle(BoskeTheme.text)
-                .lineLimit(1)
-            Spacer(minLength: 0)
-            if !compact, let type = container.image, !type.isEmpty {
-                Text(type)
-                    .font(.caption2)
-                    .foregroundStyle(BoskeTheme.dim)
-                    .lineLimit(1)
-                    .frame(maxWidth: 64, alignment: .trailing)
+        if showFullDetails {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(BoskeTheme.check(container.health))
+                        .frame(width: 6, height: 6)
+                    Text(container.name)
+                        .font(.system(size: compact ? 10 : 11, design: .monospaced))
+                        .foregroundStyle(BoskeTheme.text)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if container.uncertainHealth {
+                        Image(systemName: "questionmark.circle.fill")
+                            .font(.system(size: compact ? 8 : 9))
+                            .foregroundStyle(BoskeTheme.amber.opacity(0.85))
+                            .help("Coolify health unknown")
+                    } else if container.state.contains("degraded") {
+                        Text("!")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(BoskeTheme.amber)
+                    }
+                    Spacer(minLength: 4)
+                    Text(container.state)
+                        .font(.caption2)
+                        .foregroundStyle(BoskeTheme.muted)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.trailing)
+                }
+                if let type = container.image, !type.isEmpty {
+                    Text(type)
+                        .font(.caption2)
+                        .foregroundStyle(BoskeTheme.dim)
+                        .lineLimit(1)
+                        .padding(.leading, 12)
+                }
             }
-            Text(shortState(container.state))
-                .font(.caption2)
-                .foregroundStyle(BoskeTheme.muted)
-                .lineLimit(1)
+        } else {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(BoskeTheme.check(container.health))
+                    .frame(width: 6, height: 6)
+                Text(PulseDisplayNames.container(container.name, compact: compact))
+                    .font(.system(size: compact ? 10 : 11, design: .monospaced))
+                    .foregroundStyle(BoskeTheme.text)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .layoutPriority(1)
+                    .help(container.name)
+                if container.uncertainHealth {
+                    Image(systemName: "questionmark.circle.fill")
+                        .font(.system(size: compact ? 8 : 9))
+                        .foregroundStyle(BoskeTheme.amber.opacity(0.85))
+                        .help("Coolify health unknown")
+                } else if container.state.contains("degraded") {
+                    Text("!")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(BoskeTheme.amber)
+                        .help("Coolify service needs attention")
+                }
+                Spacer(minLength: 4)
+                if !compact, let type = container.image, !type.isEmpty {
+                    Text(type)
+                        .font(.caption2)
+                        .foregroundStyle(BoskeTheme.dim)
+                        .lineLimit(1)
+                        .frame(maxWidth: 72, alignment: .trailing)
+                }
+                Text(displayState(container.state))
+                    .font(.caption2)
+                    .foregroundStyle(BoskeTheme.muted)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
         }
-        .copyOnClick(copyText)
     }
 
-    private var copyText: String {
-        [container.name, container.state, container.image].compactMap { $0 }.joined(separator: " ")
-    }
-
-    private func shortState(_ state: String) -> String {
-        if state.count <= 14 { return state }
-        return String(state.prefix(14))
+    private func displayState(_ state: String) -> String {
+        if state.hasSuffix(":unknown") { return "running" }
+        if compact {
+            if state.contains("degraded") { return "degraded" }
+            if state == "compose" { return "compose" }
+            if state.hasPrefix("running") { return "running" }
+        }
+        if state.count <= 16 { return state }
+        return String(state.prefix(16))
     }
 }
 
@@ -473,6 +890,7 @@ struct LiveMetricChip: View {
         case .percent:
             return String(format: "%.0f%%", min(value, 999))
         case .throughput(let unit):
+            if value <= 0.005 { return "idle" }
             if value >= 100 { return String(format: "%.0f%@", value, unit) }
             if value >= 10 { return String(format: "%.1f%@", value, unit) }
             return String(format: "%.2f%@", value, unit)
@@ -485,6 +903,7 @@ struct LiveMetricChip: View {
         case .percent:
             return CGFloat(min(value, 100) / 100)
         case .throughput:
+            if value <= 0.005 { return 0.04 }
             return CGFloat(min(value / 50.0, 1.0))
         }
     }
@@ -497,6 +916,7 @@ struct LiveMetricChip: View {
             if value >= 70 { return BoskeTheme.amber }
             return BoskeTheme.accent
         case .throughput:
+            if value <= 0.005 { return BoskeTheme.dim.opacity(0.5) }
             return BoskeTheme.accent.opacity(0.85)
         }
     }

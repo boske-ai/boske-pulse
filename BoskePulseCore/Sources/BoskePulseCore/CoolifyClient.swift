@@ -25,16 +25,26 @@ public struct CoolifyMapper {
     public static func parseStatus(_ rawStatus: String) -> ParsedCoolifyStatus {
         let normalized = rawStatus.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let parts = normalized.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
-        let baseState = String(parts.first ?? Substring(normalized))
+        var baseState = String(parts.first ?? Substring(normalized))
         let healthDetail = parts.count > 1 ? String(parts[1]) : nil
+
+        // Coolify often returns compound states like "application running" / "service degraded".
+        if baseState.hasSuffix(" running") || baseState.contains(" running") {
+            baseState = "running"
+        } else if baseState.hasSuffix(" degraded") || baseState.contains(" degraded") {
+            baseState = "degraded"
+        } else if baseState.contains("stopped") || baseState.contains("exited") {
+            baseState = "stopped"
+        }
 
         let health: CheckStatus
         switch baseState {
         case "running", "healthy", "started":
             switch healthDetail {
-            case "healthy", nil, "":
+            case "healthy", nil, "", "unknown":
+                // Coolify often reports running:unknown while apps are fine.
                 health = .ok
-            case "unknown", "starting":
+            case "starting":
                 health = .warn
             case "unhealthy":
                 health = .fail
@@ -46,7 +56,15 @@ public struct CoolifyMapper {
         case "stopped", "exited", "dead", "failed", "error":
             health = .fail
         default:
-            health = .fail
+            if normalized.contains("running") {
+                health = healthDetail == "unhealthy" ? .fail : .ok
+            } else if normalized.contains("degrad") {
+                health = .warn
+            } else if normalized.contains("stop") || normalized.contains("exit") || normalized.contains("dead") {
+                health = .fail
+            } else {
+                health = .fail
+            }
         }
 
         return ParsedCoolifyStatus(baseState: baseState, healthDetail: healthDetail, health: health)
@@ -55,12 +73,14 @@ public struct CoolifyMapper {
     public static func containers(from resources: [CoolifyResource]) -> [ContainerTile] {
         resources.map { resource in
             let parsed = parseStatus(resource.status)
+            let state = parsed.healthDetail.map { "\(parsed.baseState):\($0)" } ?? parsed.baseState
             return ContainerTile(
                 id: resource.uuid,
                 name: resource.name,
-                state: parsed.healthDetail.map { "\(parsed.baseState):\($0)" } ?? parsed.baseState,
+                state: state,
                 image: resource.type,
-                health: parsed.health
+                health: parsed.health,
+                uncertainHealth: parsed.healthDetail == "unknown"
             )
         }
     }
@@ -105,6 +125,45 @@ public struct CoolifyMapper {
             + services.filter { $0.serverDatabaseID == databaseID }
         var seen = Set<String>()
         return matched.filter { seen.insert($0.uuid).inserted }
+    }
+
+    /// Finds a Coolify server record for a Hetzner-only host (name or IP).
+    public static func matchCoolifyServer(
+        hetznerName: String,
+        publicIPv4: String,
+        coolifyServers: [CoolifyServer]
+    ) -> CoolifyServer? {
+        if let byName = ServerDiscovery.matchCoolify(forHetznerName: hetznerName, servers: coolifyServers) {
+            return byName
+        }
+        guard !publicIPv4.isEmpty else { return nil }
+        return coolifyServers.first { $0.ip == publicIPv4 }
+    }
+
+    public static func resourcesForHost(
+        coolify: CoolifyServer,
+        serverName: String,
+        publicIPv4: String,
+        coolifyServers: [CoolifyServer],
+        resourcesByUUID: [String: [CoolifyResource]],
+        applications: [CoolifyResource],
+        services: [CoolifyResource]
+    ) -> [CoolifyResource] {
+        var resources = mergedResources(
+            primaryUUID: coolify.uuid,
+            serverName: serverName,
+            publicIPv4: publicIPv4,
+            coolifyServers: coolifyServers,
+            resourcesByUUID: resourcesByUUID
+        )
+        if resources.isEmpty, let databaseID = coolify.databaseID {
+            resources = supplementalResources(
+                databaseID: databaseID,
+                applications: applications,
+                services: services
+            )
+        }
+        return resources
     }
 
     public static func manualContainers(

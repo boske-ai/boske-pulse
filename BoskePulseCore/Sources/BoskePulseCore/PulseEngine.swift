@@ -65,7 +65,7 @@ public actor PulseEngine {
         rebuildResolvedServers()
 
         if dueChannels.contains(.publicHealth) {
-            await refreshPublicHealth()
+            await refreshPublicHealth(now: now)
             cache.lastPublicRefresh = now
         }
         if dueChannels.contains(.privateProbes) {
@@ -147,7 +147,8 @@ public actor PulseEngine {
         )
     }
 
-    private func refreshPublicHealth() async {
+    private func refreshPublicHealth(now: Date) async {
+        let flapWindow = TimeInterval(config.alerts.flapIgnoreSeconds)
         for server in resolvedServers {
             let configured = server.publicEndpoints
             let discovered = cache.domainsByServerID[server.cacheKey]
@@ -160,10 +161,64 @@ public actor PulseEngine {
 
             var checks: [EndpointCheckResult] = []
             for endpoint in endpoints {
-                checks.append(await healthProber.probe(endpoint: endpoint))
+                let fresh = await healthProber.probe(endpoint: endpoint)
+                let stabilized = stabilizeEndpointCheck(
+                    fresh,
+                    serverCacheKey: server.cacheKey,
+                    flapIgnoreSeconds: flapWindow,
+                    now: now
+                )
+                checks.append(stabilized)
+                if stabilized.status == .ok {
+                    cache.endpointLastOkAt[endpointStableKey(server: server.cacheKey, endpointID: endpoint.id)] = now
+                }
             }
             cache.endpointChecksByServer[server.cacheKey] = checks
         }
+    }
+
+    private func endpointStableKey(server: String, endpointID: String) -> String {
+        "\(server):\(endpointID)"
+    }
+
+    private func stabilizeEndpointCheck(
+        _ fresh: EndpointCheckResult,
+        serverCacheKey: String,
+        flapIgnoreSeconds: TimeInterval,
+        now: Date
+    ) -> EndpointCheckResult {
+        guard fresh.status == .fail else { return fresh }
+        let key = endpointStableKey(server: serverCacheKey, endpointID: fresh.id)
+        guard let lastOk = cache.endpointLastOkAt[key],
+              now.timeIntervalSince(lastOk) < flapIgnoreSeconds
+        else { return fresh }
+
+        return EndpointCheckResult(
+            id: fresh.id,
+            label: fresh.label,
+            status: .warn,
+            httpStatus: fresh.httpStatus,
+            latencyMs: fresh.latencyMs,
+            message: fresh.message.map { "transient: \($0)" } ?? "transient failure"
+        )
+    }
+
+    private func metricsForServer(_ server: ResolvedServer) -> HetznerServerMetrics? {
+        if let metrics = cache.metricsByServerName[server.cacheKey] {
+            return metrics
+        }
+        if let hetznerName = server.hetznerServerName,
+           let metrics = cache.metricsByServerName[hetznerName]
+        {
+            return metrics
+        }
+        if let hetznerName = server.hetznerServerName,
+           let host = cache.hetznerHosts.first(where: { ServerDiscovery.namesMatch($0.name, hetznerName) }),
+           let metrics = cache.metricsByServerName[host.name]
+        {
+            return metrics
+        }
+        return nil
     }
 
     private func refreshCoolify(credentials: PulseCredentials, tailscaleUp: Bool) async {
@@ -176,6 +231,7 @@ public actor PulseEngine {
             cache.containersByCoolifyUUID = [:]
             cache.domainsByServerID = [:]
             cache.domainsByCoolifyUUID = [:]
+            cache.linkedCoolifyUUIDByServerID = [:]
             return
         }
 
@@ -202,30 +258,25 @@ public actor PulseEngine {
         var containersByID: [String: [ContainerTile]] = [:]
         var domainsByID: [String: [String]] = [:]
         var containersByUUID: [String: [ContainerTile]] = [:]
+        var linkedCoolifyByServerID: [String: String] = [:]
         let hosts = ServerDiscovery.resolve(
             config: config,
             coolifyServers: servers,
             hetznerHosts: cache.hetznerHosts
         )
         for server in hosts where server.coolifyManaged {
-            guard let uuid = server.coolifyUUID else { continue }
-            var resources = CoolifyMapper.mergedResources(
-                primaryUUID: uuid,
+            guard let uuid = server.coolifyUUID,
+                  let coolify = servers.first(where: { $0.uuid == uuid })
+            else { continue }
+            let resources = CoolifyMapper.resourcesForHost(
+                coolify: coolify,
                 serverName: server.name,
                 publicIPv4: server.publicIPv4,
                 coolifyServers: servers,
-                resourcesByUUID: resourcesByCoolifyUUID
+                resourcesByUUID: resourcesByCoolifyUUID,
+                applications: applications,
+                services: services
             )
-            if resources.isEmpty,
-               let coolify = servers.first(where: { $0.uuid == uuid }),
-               let databaseID = coolify.databaseID
-            {
-                resources = CoolifyMapper.supplementalResources(
-                    databaseID: databaseID,
-                    applications: applications,
-                    services: services
-                )
-            }
             let containers = CoolifyMapper.containers(from: resources)
             containersByID[server.cacheKey] = containers
             containersByUUID[uuid] = containers
@@ -240,10 +291,38 @@ public actor PulseEngine {
             }
             domainsByID[server.cacheKey] = Array(Set(domains)).sorted()
         }
+
+        // Hetzner-only hosts that later appear in Coolify (search, llm, etc.)
+        for server in hosts where !server.coolifyManaged {
+            let hostName = server.hetznerServerName ?? server.name
+            guard let coolify = CoolifyMapper.matchCoolifyServer(
+                hetznerName: hostName,
+                publicIPv4: server.publicIPv4,
+                coolifyServers: servers
+            ) else { continue }
+
+            let resources = CoolifyMapper.resourcesForHost(
+                coolify: coolify,
+                serverName: hostName,
+                publicIPv4: server.publicIPv4,
+                coolifyServers: servers,
+                resourcesByUUID: resourcesByCoolifyUUID,
+                applications: applications,
+                services: services
+            )
+            guard !resources.isEmpty else { continue }
+
+            let containers = CoolifyMapper.containers(from: resources)
+            containersByID[server.cacheKey] = containers
+            linkedCoolifyByServerID[server.cacheKey] = coolify.uuid
+            domainsByID[server.cacheKey] = domainsByCoolifyUUID[coolify.uuid] ?? []
+        }
+
         cache.containersByServerID = containersByID
         cache.containersByCoolifyUUID = containersByUUID
         cache.domainsByServerID = domainsByID
         cache.domainsByCoolifyUUID = domainsByCoolifyUUID
+        cache.linkedCoolifyUUIDByServerID = linkedCoolifyByServerID
     }
 
     private func refreshHetzner(credentials: PulseCredentials) async {
@@ -344,7 +423,7 @@ public actor PulseEngine {
         if snapshotCount != resolvedCount {
             return "Showing \(snapshotCount) of \(resolvedCount) — Coolify \(coolifyCount), Hetzner \(hetznerCount)"
         }
-        return "Discovered \(resolvedCount) server(s) — Coolify \(coolifyCount), Hetzner \(hetznerCount)"
+        return "Showing \(resolvedCount) hosts · Coolify \(coolifyCount) · Hetzner \(hetznerCount)"
     }
 
     /// HTTPS Coolify (e.g. Coolify Cloud) is reachable without Tailscale.
@@ -376,14 +455,15 @@ public actor PulseEngine {
             }
             let coolifyServer = server.coolifyUUID.flatMap { uuid in
                 cache.coolifyServers.first(where: { $0.uuid == uuid })
+            } ?? cache.linkedCoolifyUUIDByServerID[server.cacheKey].flatMap { uuid in
+                cache.coolifyServers.first(where: { $0.uuid == uuid })
             }
             let coolifyReachable = coolifyServer?.isReachable
             let coolifyUsable = coolifyServer?.isUsable
             let coolifyDomains = cache.domainsByServerID[server.cacheKey]
                 ?? server.coolifyUUID.flatMap { cache.domainsByCoolifyUUID[$0] }
                 ?? []
-            let metrics = cache.metricsByServerName[server.cacheKey]
-                ?? server.hetznerServerName.flatMap { cache.metricsByServerName[$0] }
+            let metrics = metricsForServer(server)
 
             var snapshot = HealthRollup.serverSnapshot(
                 config: serverConfig,

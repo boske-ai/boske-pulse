@@ -24,7 +24,8 @@ public enum HealthRollup {
         containers: [ContainerTile]
     ) -> ServerSnapshot {
         let publicStatuses = endpointChecks.map(\.status)
-        let publicOverall = overall(from: publicStatuses)
+        let hasPublicChecks = !endpointChecks.isEmpty
+        let publicOverall = hasPublicChecks ? overall(from: publicStatuses) : .unknown
 
         var infraStatuses: [CheckStatus] = []
         for probe in privateProbes where probe.status != .skipped {
@@ -33,14 +34,15 @@ public enum HealthRollup {
         if let coolifyReachable {
             infraStatuses.append(coolifyReachable ? .ok : .warn)
         }
-        infraStatuses += containers.map(\.health)
+        infraStatuses += containers.map(\.health).filter { $0 != .skipped }
 
-        let infraOverall = overall(from: infraStatuses)
+        // Hosts without public smoke (data, etc.) — infra warnings are notes, not host-down.
+        let infraOverall = hasPublicChecks
+            ? overall(from: infraStatuses)
+            : overallIgnoringInfraWarnings(from: infraStatuses)
         let serverOverall = combineServerHealth(public: publicOverall, infra: infraOverall)
 
-        let running = containers.filter { container in
-            parseContainerBaseState(container.state) == "running"
-        }.count
+        let running = containers.filter(isContainerRunning).count
 
         return ServerSnapshot(
             id: config.id,
@@ -131,16 +133,41 @@ public enum HealthRollup {
             if productionOverall == .healthy {
                 return "PASS: public smoke OK"
             }
-            return tailscaleConnected
-                ? "PASS: public smoke OK — infra warnings"
-                : "PASS: public smoke OK — limited checks"
+            return "PASS: public smoke OK — infra warnings"
         case .degraded:
             return "WARN: public smoke degraded"
         case .down:
             return "FAIL: public smoke down"
         case .unknown:
+            if productionOverall == .healthy {
+                return "PASS: monitored hosts OK"
+            }
+            if productionOverall == .degraded {
+                return "WARN: infra warnings"
+            }
             return "UNKNOWN: awaiting public probes"
         }
+    }
+
+    /// Infra-only hosts: only hard failures affect overall health.
+    static func overallIgnoringInfraWarnings(from statuses: [CheckStatus]) -> OverallHealth {
+        let active = statuses.filter { $0 != .skipped }
+        if active.contains(.fail) {
+            return .down
+        }
+        if active.isEmpty {
+            return .unknown
+        }
+        return .healthy
+    }
+
+    private static func isContainerRunning(_ container: ContainerTile) -> Bool {
+        if container.health == .fail { return false }
+        let base = parseContainerBaseState(container.state).lowercased()
+        if base == "running" || base.contains("running") {
+            return true
+        }
+        return container.state == "compose"
     }
 
     private static func parseContainerBaseState(_ state: String) -> String {
