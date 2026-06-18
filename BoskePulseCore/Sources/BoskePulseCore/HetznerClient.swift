@@ -277,16 +277,15 @@ private struct HetznerFlexibleNumber: Decodable {
 enum HetznerMetricsParser {
     fileprivate static func parse(_ response: HetznerMetricsResponse) -> HetznerServerMetrics {
         let series = response.metrics.timeSeries
-        let cpuRaw = series["cpu"]?.values.last?.value
-            ?? series.keys.first(where: { $0.hasPrefix("cpu") }).flatMap { series[$0]?.values.last?.value }
-        let cpuPercent = cpuRaw.map(normalizeCPU)
+        let cpuSeries = series["cpu"] ?? series.keys.first(where: { $0.hasPrefix("cpu") }).flatMap { series[$0] }
+        let cpuPercent = cpuSeries.flatMap(cpuPercent(from:))
 
         let diskKey = series.keys.first { $0.contains("disk") && $0.contains("bandwidth") && $0.contains("read") }
-        let diskBytesPerSec = diskKey.flatMap { series[$0]?.values.last?.value }
+        let diskBytesPerSec = diskKey.flatMap { averagedSample(from: series[$0]) }
         let diskMBps = diskBytesPerSec.map { $0 / 1_000_000 }
 
         let netKey = series.keys.first { $0.contains("network") && $0.contains("bandwidth") && $0.contains("in") }
-        let netBytesPerSec = netKey.flatMap { series[$0]?.values.last?.value }
+        let netBytesPerSec = netKey.flatMap { averagedSample(from: series[$0]) }
         let netInMbps = netBytesPerSec.map { ($0 * 8) / 1_000_000 }
 
         return HetznerServerMetrics(
@@ -297,7 +296,29 @@ enum HetznerMetricsParser {
         )
     }
 
+    private static func cpuPercent(from series: HetznerSeries) -> Double? {
+        averagedCPU(from: recentSamples(from: series))
+    }
+
+    static func averagedCPU(from samples: [Double]) -> Double? {
+        guard !samples.isEmpty else { return nil }
+        let avg = samples.reduce(0, +) / Double(samples.count)
+        return normalizeCPU(avg)
+    }
+
     static func normalizeCPU(_ raw: Double) -> Double {
-        raw <= 1.0 ? raw * 100 : raw
+        let percent = raw <= 1.0 ? raw * 100 : raw
+        return min(max(percent, 0), 100)
+    }
+
+    private static func recentSamples(from series: HetznerSeries, count: Int = 3) -> [Double] {
+        series.values.suffix(count).map(\.value).filter { $0.isFinite && $0 >= 0 }
+    }
+
+    private static func averagedSample(from series: HetznerSeries?, count: Int = 3) -> Double? {
+        guard let series else { return nil }
+        let samples = recentSamples(from: series, count: count)
+        guard !samples.isEmpty else { return nil }
+        return samples.reduce(0, +) / Double(samples.count)
     }
 }

@@ -104,7 +104,47 @@ final class HealthRollupTests: XCTestCase {
         ]
         let snapshot = HealthRollup.production(servers: servers, tailscaleConnected: false)
         XCTAssertEqual(snapshot.overall, .degraded)
-        XCTAssertEqual(snapshot.smokeSummary, "PASS: public smoke OK — limited checks")
+        XCTAssertEqual(snapshot.smokeSummary, "PASS: public smoke OK — infra warnings")
+    }
+
+    func testRunningUnknownContainerRollsUpHealthy() {
+        let snapshot = HealthRollup.serverSnapshot(
+            config: sampleConfig(),
+            endpointChecks: [
+                EndpointCheckResult(id: "web", label: "boske.dev", status: .ok, httpStatus: 200, latencyMs: 3),
+            ],
+            privateProbes: [],
+            coolifyReachable: true,
+            containers: [
+                ContainerTile(id: "1", name: "boske-website", state: "running:unknown", health: .ok, uncertainHealth: true),
+            ]
+        )
+        XCTAssertEqual(snapshot.overall, .healthy)
+    }
+
+    func testInfraOnlyHostIgnoresContainerWarnings() {
+        let config = ServerConfig(
+            id: "boske-data-01",
+            name: "boske-data-01",
+            role: "data",
+            hetznerServerName: "boske-data-01",
+            publicIPv4: "1.2.3.4",
+            privateIP: "10.0.0.2",
+            region: "hel1",
+            coolifyManaged: true,
+            publicEndpoints: [],
+            links: ServerLinks(hetzner: "https://hetzner.cloud", ssh: "ssh root@1.2.3.4")
+        )
+        let snapshot = HealthRollup.serverSnapshot(
+            config: config,
+            endpointChecks: [],
+            privateProbes: [],
+            coolifyReachable: true,
+            containers: [
+                ContainerTile(id: "1", name: "licensing-pg", state: "degraded:unhealthy", health: .warn),
+            ]
+        )
+        XCTAssertEqual(snapshot.overall, .healthy)
     }
 
     private func sampleConfig() -> ServerConfig {

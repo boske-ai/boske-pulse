@@ -32,6 +32,30 @@ final class HealthProberTests: XCTestCase {
         let result = await prober.probe(endpoint: endpoint)
         XCTAssertEqual(result.status, .warn)
     }
+
+    func testProbeAcceptsConfiguredAlternateStatus() async {
+        let client = MockHTTPClient(result: HTTPProbeResult(statusCode: 403, body: "Forbidden", latencyMs: 40, errorMessage: nil))
+        let prober = HealthProber(client: client)
+        let endpoint = EndpointProbe(
+            id: "search",
+            label: "search.boske.dev",
+            url: "https://search.boske.dev/",
+            expectStatus: 200,
+            acceptStatuses: [200, 403]
+        )
+        let result = await prober.probe(endpoint: endpoint)
+        XCTAssertEqual(result.status, .ok)
+        XCTAssertEqual(result.httpStatus, 403)
+    }
+
+    func testProbe403WithoutAcceptStatusesIsWarnNotFail() async {
+        let client = MockHTTPClient(result: HTTPProbeResult(statusCode: 403, body: "Forbidden", latencyMs: 40, errorMessage: nil))
+        let prober = HealthProber(client: client)
+        let endpoint = EndpointProbe(id: "web", label: "boske.dev", url: "https://boske.dev/", expectStatus: 200)
+        let result = await prober.probe(endpoint: endpoint)
+        XCTAssertEqual(result.status, .warn)
+        XCTAssertEqual(result.httpStatus, 403)
+    }
 }
 
 private struct MockHTTPClient: HTTPClient {

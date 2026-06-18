@@ -5,6 +5,8 @@ import SwiftUI
 enum ProductionWindowPresenter {
     private static var window: NSWindow?
 
+    static var windowReference: NSWindow? { window }
+
     static func show(model: AppModel) {
         let dashboard = ProductionMainWindowView(model: model)
         if let window {
@@ -25,6 +27,10 @@ enum ProductionWindowPresenter {
         window.isReleasedWhenClosed = false
         self.window = window
         present(window)
+    }
+
+    static func close() {
+        window?.orderOut(nil)
     }
 
     private static func present(_ window: NSWindow) {
@@ -57,6 +63,7 @@ struct ProductionMainWindowView: View {
                     }
 
                     Menu {
+                        Button("Pin compact window") { DashboardPresentation.openCompactWindow(model: model) }
                         Button("Open Coolify") { model.openCoolify() }
                         Button("Open Hetzner") { model.openHetzner() }
                     } label: {
