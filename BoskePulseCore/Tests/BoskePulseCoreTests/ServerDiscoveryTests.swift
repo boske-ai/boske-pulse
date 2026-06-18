@@ -46,7 +46,7 @@ final class ServerDiscoveryTests: XCTestCase {
         let coolify = [CoolifyServer(uuid: "c1", name: "app-01", isReachable: true, isUsable: true)]
         let hetzner = [
             HetznerHostInfo(id: 1, name: "example-app-01", publicIPv4: "1.2.3.4", privateIP: "10.99.0.6", region: "hel1"),
-            HetznerHostInfo(id: 2, name: "example-data-01", publicIPv4: "5.6.7.8", privateIP: "10.99.0.2", region: "hel1")
+            HetznerHostInfo(id: 2, name: "example-data-01", publicIPv4: "203.0.113.32", privateIP: "10.99.0.2", region: "hel1")
         ]
 
         let resolved = ServerDiscovery.resolve(config: config, coolifyServers: coolify, hetznerHosts: hetzner)
@@ -75,9 +75,9 @@ final class ServerDiscoveryTests: XCTestCase {
             CoolifyServer(uuid: "shared", name: "portfolio-sites", isReachable: true, isUsable: true)
         ]
         let hetzner = [
-            HetznerHostInfo(id: 1, name: "example-app-01", publicIPv4: "1.1.1.1", privateIP: "10.99.0.6", region: "hel1"),
-            HetznerHostInfo(id: 2, name: "example-website", publicIPv4: "2.2.2.2", privateIP: "10.99.0.3", region: "hel1"),
-            HetznerHostInfo(id: 3, name: "example-data-01", publicIPv4: "3.3.3.3", privateIP: "10.99.0.2", region: "hel1")
+            HetznerHostInfo(id: 1, name: "example-app-01", publicIPv4: "203.0.113.11", privateIP: "10.99.0.6", region: "hel1"),
+            HetznerHostInfo(id: 2, name: "example-website", publicIPv4: "203.0.113.21", privateIP: "10.99.0.3", region: "hel1"),
+            HetznerHostInfo(id: 3, name: "example-data-01", publicIPv4: "203.0.113.31", privateIP: "10.99.0.2", region: "hel1")
         ]
 
         let resolved = ServerDiscovery.resolve(config: config, coolifyServers: coolify, hetznerHosts: hetzner)
@@ -232,11 +232,11 @@ final class ServerDiscoveryTests: XCTestCase {
             CoolifyServer(uuid: "c\(index)", name: name, isReachable: true, isUsable: true)
         }
         let hetzner = [
-            HetznerHostInfo(id: 1, name: "examp-app-01", publicIPv4: "1.1.1.1", privateIP: "10.99.0.6", region: "hel1"),
-            HetznerHostInfo(id: 2, name: "example-data-01", publicIPv4: "2.2.2.2", privateIP: "10.99.0.2", region: "hel1"),
-            HetznerHostInfo(id: 3, name: "example-llm-01", publicIPv4: "3.3.3.3", privateIP: "10.99.0.5", region: "fsn1"),
-            HetznerHostInfo(id: 4, name: "example-search-01", publicIPv4: "4.4.4.4", privateIP: "10.99.0.4", region: "nbg1"),
-            HetznerHostInfo(id: 5, name: "example-website", publicIPv4: "5.5.5.5", privateIP: "10.99.0.3", region: "hel1")
+            HetznerHostInfo(id: 1, name: "examp-app-01", publicIPv4: "203.0.113.11", privateIP: "10.99.0.6", region: "hel1"),
+            HetznerHostInfo(id: 2, name: "example-data-01", publicIPv4: "203.0.113.32", privateIP: "10.99.0.2", region: "hel1"),
+            HetznerHostInfo(id: 3, name: "example-llm-01", publicIPv4: "203.0.113.33", privateIP: "10.99.0.5", region: "fsn1"),
+            HetznerHostInfo(id: 4, name: "example-search-01", publicIPv4: "203.0.113.34", privateIP: "10.99.0.4", region: "nbg1"),
+            HetznerHostInfo(id: 5, name: "example-website", publicIPv4: "203.0.113.21", privateIP: "10.99.0.3", region: "hel1")
         ]
 
         let resolved = ServerDiscovery.resolve(config: config, coolifyServers: coolify, hetznerHosts: hetzner)
