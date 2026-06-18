@@ -32,6 +32,9 @@ fi
 xcodegen generate
 echo "✓ Generated BoskePulse.xcodeproj"
 
+swift scripts/render-brand-icons.swift "$ROOT"
+echo "✓ Rendered AppIcon + PulseLogo assets"
+
 echo ""
 echo "Next:"
 echo "  open BoskePulse.xcodeproj"
