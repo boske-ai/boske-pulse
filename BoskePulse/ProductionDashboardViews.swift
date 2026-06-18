@@ -112,9 +112,8 @@ struct ProductionHeaderView: View {
     private var windowHeader: some View {
         HStack(alignment: .center, spacing: 16) {
             HStack(spacing: 10) {
-                Circle()
-                    .fill(snapshot.map { BoskeTheme.health($0.overall) } ?? BoskeTheme.muted)
-                    .frame(width: 10, height: 10)
+                PulseMenuBarIcon(color: snapshot.map { BoskeTheme.health($0.overall) } ?? BoskeTheme.muted)
+                    .scaleEffect(1.55)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Boske Pulse")
                         .font(.system(.title3, design: .rounded).weight(.semibold))
@@ -138,10 +137,8 @@ struct ProductionHeaderView: View {
 
     private var menuBarHeader: some View {
         VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 10) {
-                Circle()
-                    .fill(snapshot.map { BoskeTheme.health($0.overall) } ?? BoskeTheme.muted)
-                    .frame(width: 8, height: 8)
+            HStack(spacing: 8) {
+                PulseMenuBarIcon(color: snapshot.map { BoskeTheme.health($0.overall) } ?? BoskeTheme.muted)
                 Text("Boske Pulse")
                     .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     .foregroundStyle(BoskeTheme.text)
