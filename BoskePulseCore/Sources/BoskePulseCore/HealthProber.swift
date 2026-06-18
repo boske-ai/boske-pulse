@@ -73,12 +73,33 @@ public struct HealthProber: Sendable {
             )
         }
 
-        guard result.statusCode == endpoint.expectStatus else {
+        guard let statusCode = result.statusCode else {
             return EndpointCheckResult(
                 id: endpoint.id,
                 label: endpoint.label,
                 status: .fail,
-                httpStatus: result.statusCode,
+                latencyMs: result.latencyMs,
+                message: "no HTTP status"
+            )
+        }
+
+        let accepted = Set(endpoint.resolvedAcceptStatuses)
+        if !accepted.contains(statusCode) {
+            if (401 ... 403).contains(statusCode), accepted.contains(200) {
+                return EndpointCheckResult(
+                    id: endpoint.id,
+                    label: endpoint.label,
+                    status: .warn,
+                    httpStatus: statusCode,
+                    latencyMs: result.latencyMs,
+                    message: "HTTP \(statusCode) — reachable, access restricted"
+                )
+            }
+            return EndpointCheckResult(
+                id: endpoint.id,
+                label: endpoint.label,
+                status: .fail,
+                httpStatus: statusCode,
                 latencyMs: result.latencyMs,
                 message: "expected HTTP \(endpoint.expectStatus)"
             )
