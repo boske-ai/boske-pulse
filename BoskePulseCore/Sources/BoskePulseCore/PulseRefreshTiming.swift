@@ -2,9 +2,11 @@ import Foundation
 
 public struct OperatorHints: Sendable, Equatable {
     public let messages: [String]
+    public let discoverySummary: String?
 
-    public init(messages: [String]) {
+    public init(messages: [String], discoverySummary: String? = nil) {
         self.messages = messages
+        self.discoverySummary = discoverySummary
     }
 
     public static let none = OperatorHints(messages: [])
@@ -22,8 +24,14 @@ struct PulseSourceCache: Sendable {
     var endpointChecksByServer: [String: [EndpointCheckResult]] = [:]
     var privateProbesByServer: [String: [PrivateProbeResult]] = [:]
     var coolifyServers: [CoolifyServer] = []
-    var containersByServerName: [String: [ContainerTile]] = [:]
+    var hetznerHosts: [HetznerHostInfo] = []
+    var containersByServerID: [String: [ContainerTile]] = [:]
+    var containersByCoolifyUUID: [String: [ContainerTile]] = [:]
+    var domainsByServerID: [String: [String]] = [:]
+    var domainsByCoolifyUUID: [String: [String]] = [:]
+    var linkedCoolifyUUIDByServerID: [String: String] = [:]
     var metricsByServerName: [String: HetznerServerMetrics] = [:]
+    var endpointLastOkAt: [String: Date] = [:]
 
     var lastPublicRefresh: Date?
     var lastCoolifyRefresh: Date?

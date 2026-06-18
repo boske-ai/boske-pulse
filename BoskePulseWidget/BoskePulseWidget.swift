@@ -58,9 +58,15 @@ struct PulseWidgetEntryView: View {
     }
 
     private var smallView: some View {
-        VStack(alignment: .leading) {
-            Text("Boske")
-                .font(.caption.weight(.bold))
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image("PulseLogo")
+                    .resizable()
+                    .frame(width: 20, height: 20)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                Text("Pulse")
+                    .font(.caption.weight(.bold))
+            }
             Text(entry.snapshot?.overall.rawValue.uppercased() ?? "SYNC")
                 .font(.title2.weight(.semibold))
             HStack(spacing: 6) {
@@ -78,7 +84,7 @@ struct PulseWidgetEntryView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(entry.snapshot?.smokeSummary ?? "Awaiting sync")
                 .font(.caption)
-            ForEach((entry.snapshot?.servers ?? []).prefix(4)) { server in
+            ForEach(entry.snapshot?.servers ?? []) { server in
                 HStack {
                     Text(server.name)
                         .font(.system(.caption, design: .monospaced))

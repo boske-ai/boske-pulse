@@ -37,6 +37,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: eu.canopystudio.boske.pulse
         PRODUCT_NAME: Boske Pulse
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_FILE: BoskePulse/Info.plist
         CODE_SIGN_ENTITLEMENTS: BoskePulse/BoskePulse.entitlements
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
