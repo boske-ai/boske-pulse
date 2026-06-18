@@ -15,6 +15,7 @@ public actor PulseEngine {
     private let onAlert: AlertHandler?
 
     private var cache = PulseSourceCache()
+    private(set) public var resolvedServers: [ResolvedServer] = []
     private(set) public var latestSnapshot: ProductionSnapshot?
     private(set) public var operatorHints = OperatorHints.none
 
@@ -52,17 +53,20 @@ public actor PulseEngine {
         cache.tailscaleConnected = tailscaleUp
 
         let dueChannels = channelsDue(now: now, force: force)
-        if dueChannels.contains(.publicHealth) {
-            await refreshPublicHealth()
-            cache.lastPublicRefresh = now
-        }
-        if dueChannels.contains(.coolify) {
+
+        if force || dueChannels.contains(.coolify) {
             await refreshCoolify(credentials: credentials, tailscaleUp: tailscaleUp)
             cache.lastCoolifyRefresh = now
         }
-        if dueChannels.contains(.hetzner) {
+        if force || dueChannels.contains(.hetzner) {
             await refreshHetzner(credentials: credentials)
             cache.lastHetznerRefresh = now
+        }
+        rebuildResolvedServers()
+
+        if dueChannels.contains(.publicHealth) {
+            await refreshPublicHealth()
+            cache.lastPublicRefresh = now
         }
         if dueChannels.contains(.privateProbes) {
             await refreshPrivateProbes(tailscaleUp: tailscaleUp)
@@ -71,9 +75,15 @@ public actor PulseEngine {
             applySkippedPrivateProbes()
         }
 
-        operatorHints = buildOperatorHints(credentials: credentials, tailscaleUp: tailscaleUp)
         let production = buildSnapshot(now: now)
         latestSnapshot = production
+        operatorHints = buildOperatorHints(
+            credentials: credentials,
+            tailscaleUp: tailscaleUp,
+            discoverySummary: config.discovery.enabled
+                ? buildDiscoverySummary(snapshotCount: production.servers.count)
+                : nil
+        )
 
         let decision = debouncer.evaluate(overall: production.overall, now: now)
         if decision.shouldNotify {
@@ -129,13 +139,30 @@ public actor PulseEngine {
         return due
     }
 
+    private func rebuildResolvedServers() {
+        resolvedServers = ServerDiscovery.resolve(
+            config: config,
+            coolifyServers: cache.coolifyServers,
+            hetznerHosts: cache.hetznerHosts
+        )
+    }
+
     private func refreshPublicHealth() async {
-        for serverConfig in config.servers where !serverConfig.publicEndpoints.isEmpty {
+        for server in resolvedServers {
+            let configured = server.publicEndpoints
+            let discovered = cache.domainsByServerID[server.cacheKey]
+                ?? server.coolifyUUID.flatMap { cache.domainsByCoolifyUUID[$0] }
+                ?? []
+            let endpoints = configured.isEmpty
+                ? CoolifyMapper.endpoints(from: discovered)
+                : configured
+            guard !endpoints.isEmpty else { continue }
+
             var checks: [EndpointCheckResult] = []
-            for endpoint in serverConfig.publicEndpoints {
+            for endpoint in endpoints {
                 checks.append(await healthProber.probe(endpoint: endpoint))
             }
-            cache.endpointChecksByServer[serverConfig.id] = checks
+            cache.endpointChecksByServer[server.cacheKey] = checks
         }
     }
 
@@ -145,7 +172,10 @@ public actor PulseEngine {
               Self.canReachCoolify(baseURL: base, tailscaleUp: tailscaleUp)
         else {
             cache.coolifyServers = []
-            cache.containersByServerName = [:]
+            cache.containersByServerID = [:]
+            cache.containersByCoolifyUUID = [:]
+            cache.domainsByServerID = [:]
+            cache.domainsByCoolifyUUID = [:]
             return
         }
 
@@ -154,75 +184,167 @@ public actor PulseEngine {
         let servers = (try? await client.listServers()) ?? []
         cache.coolifyServers = servers
 
-        var containersByName: [String: [ContainerTile]] = [:]
-        for serverConfig in config.servers where serverConfig.coolifyManaged {
-            guard let coolifyServer = CoolifyMapper.matchServer(
-                configName: serverConfig.hetznerServerName,
-                coolifyServers: servers
-            ) else { continue }
-            if let resources = try? await client.listResources(serverUUID: coolifyServer.uuid) {
-                containersByName[serverConfig.hetznerServerName] = CoolifyMapper.containers(from: resources)
+        var resourcesByCoolifyUUID: [String: [CoolifyResource]] = [:]
+        var domainsByCoolifyUUID: [String: [String]] = [:]
+        for coolify in servers {
+            if let resources = try? await client.listResources(serverUUID: coolify.uuid) {
+                resourcesByCoolifyUUID[coolify.uuid] = resources
+            }
+            if let groups = try? await client.listDomains(serverUUID: coolify.uuid) {
+                domainsByCoolifyUUID[coolify.uuid] = CoolifyMapper.flattenDomains(groups)
             }
         }
-        cache.containersByServerName = containersByName
+
+        let supplementalNeeded = servers.contains { resourcesByCoolifyUUID[$0.uuid]?.isEmpty ?? true }
+        let applications = supplementalNeeded ? ((try? await client.listApplications()) ?? []) : []
+        let services = supplementalNeeded ? ((try? await client.listServices()) ?? []) : []
+
+        var containersByID: [String: [ContainerTile]] = [:]
+        var domainsByID: [String: [String]] = [:]
+        var containersByUUID: [String: [ContainerTile]] = [:]
+        let hosts = ServerDiscovery.resolve(
+            config: config,
+            coolifyServers: servers,
+            hetznerHosts: cache.hetznerHosts
+        )
+        for server in hosts where server.coolifyManaged {
+            guard let uuid = server.coolifyUUID else { continue }
+            var resources = CoolifyMapper.mergedResources(
+                primaryUUID: uuid,
+                serverName: server.name,
+                publicIPv4: server.publicIPv4,
+                coolifyServers: servers,
+                resourcesByUUID: resourcesByCoolifyUUID
+            )
+            if resources.isEmpty,
+               let coolify = servers.first(where: { $0.uuid == uuid }),
+               let databaseID = coolify.databaseID
+            {
+                resources = CoolifyMapper.supplementalResources(
+                    databaseID: databaseID,
+                    applications: applications,
+                    services: services
+                )
+            }
+            let containers = CoolifyMapper.containers(from: resources)
+            containersByID[server.cacheKey] = containers
+            containersByUUID[uuid] = containers
+
+            var domains = domainsByCoolifyUUID[uuid] ?? []
+            for coolify in servers where coolify.uuid != uuid {
+                let sameHost = ServerDiscovery.namesMatch(coolify.name, server.name)
+                    || (!server.publicIPv4.isEmpty && coolify.ip == server.publicIPv4)
+                if sameHost, let aliasDomains = domainsByCoolifyUUID[coolify.uuid] {
+                    domains.append(contentsOf: aliasDomains)
+                }
+            }
+            domainsByID[server.cacheKey] = Array(Set(domains)).sorted()
+        }
+        cache.containersByServerID = containersByID
+        cache.containersByCoolifyUUID = containersByUUID
+        cache.domainsByServerID = domainsByID
+        cache.domainsByCoolifyUUID = domainsByCoolifyUUID
     }
 
     private func refreshHetzner(credentials: PulseCredentials) async {
         guard let token = credentials.hetznerToken else {
+            cache.hetznerHosts = []
             cache.metricsByServerName = [:]
             return
         }
         let client = hetznerClientFactory(token)
+        cache.hetznerHosts = (try? await client.listHosts()) ?? []
+
         var metrics: [String: HetznerServerMetrics] = [:]
-        for serverConfig in config.servers {
-            if let value = try? await client.metrics(forServerName: serverConfig.hetznerServerName) {
-                metrics[serverConfig.hetznerServerName] = value
+        let hosts = ServerDiscovery.resolve(
+            config: config,
+            coolifyServers: cache.coolifyServers,
+            hetznerHosts: cache.hetznerHosts
+        )
+        for server in hosts {
+            guard let hetznerName = server.hetznerServerName else { continue }
+            let host = cache.hetznerHosts.first {
+                $0.name == hetznerName || ServerDiscovery.namesMatch($0.name, hetznerName)
             }
+            guard let host else { continue }
+            guard let value = try? await client.metrics(forServerID: host.id) else { continue }
+            metrics[host.name] = value
+            metrics[hetznerName] = value
+            metrics[server.cacheKey] = value
         }
         cache.metricsByServerName = metrics
     }
 
     private func refreshPrivateProbes(tailscaleUp: Bool) async {
-        for serverConfig in config.servers {
-            guard !serverConfig.privateProbes.isEmpty else { continue }
+        for server in resolvedServers {
+            guard !server.privateProbes.isEmpty else { continue }
             if tailscaleUp {
                 var results: [PrivateProbeResult] = []
-                for probe in serverConfig.privateProbes {
+                for probe in server.privateProbes {
                     results.append(await privateProber.probe(probe))
                 }
-                cache.privateProbesByServer[serverConfig.id] = results
+                cache.privateProbesByServer[server.cacheKey] = results
             } else {
-                cache.privateProbesByServer[serverConfig.id] = serverConfig.privateProbes.map {
-                    PrivateProbeResult(id: $0.id, label: $0.label, status: .skipped, message: "tailscale offline")
+                cache.privateProbesByServer[server.cacheKey] = server.privateProbes.map {
+                    PrivateProbeResult(id: $0.id, label: $0.label, status: .skipped, message: "private network")
                 }
             }
         }
     }
 
     private func applySkippedPrivateProbes() {
-        for serverConfig in config.servers where !serverConfig.privateProbes.isEmpty {
-            cache.privateProbesByServer[serverConfig.id] = serverConfig.privateProbes.map {
-                PrivateProbeResult(id: $0.id, label: $0.label, status: .skipped, message: "tailscale offline")
+        for server in resolvedServers where !server.privateProbes.isEmpty {
+            cache.privateProbesByServer[server.cacheKey] = server.privateProbes.map {
+                PrivateProbeResult(id: $0.id, label: $0.label, status: .skipped, message: "private network")
             }
         }
     }
 
-    private func buildOperatorHints(credentials: PulseCredentials, tailscaleUp: Bool) -> OperatorHints {
+    private func buildOperatorHints(
+        credentials: PulseCredentials,
+        tailscaleUp: Bool,
+        discoverySummary: String?
+    ) -> OperatorHints {
         var messages: [String] = []
         let coolifyNeedsTailscale = credentials.coolifyBaseURL.map { !Self.coolifyReachableWithoutTailscale(baseURL: $0) } ?? false
 
-        if credentials.coolifyBaseURL == nil || credentials.coolifyToken == nil {
-            messages.append("Add Coolify URL + API token in Settings for container status")
-        } else if !tailscaleUp && coolifyNeedsTailscale {
-            messages.append("Tailscale offline — self-hosted Coolify API paused")
+        if config.discovery.enabled {
+            if credentials.coolifyBaseURL == nil || credentials.coolifyToken == nil {
+                messages.append("Add Coolify URL + API token — servers are auto-discovered from Coolify")
+            } else if resolvedServers.isEmpty {
+                messages.append("No servers discovered yet — check Coolify credentials")
+            }
+        } else {
+            messages.append("Static config (\(config.servers.count) servers) — run make setup to enable auto-discovery")
+            if credentials.coolifyBaseURL == nil || credentials.coolifyToken == nil {
+                messages.append("Add Coolify URL + API token in Settings for container status")
+            } else if !tailscaleUp && coolifyNeedsTailscale {
+                messages.append("Self-hosted Coolify unreachable — check VPN or URL")
+            }
         }
-        if !tailscaleUp {
-            messages.append("Tailscale offline — private probes paused")
-        }
+
         if credentials.hetznerToken == nil {
-            messages.append("Optional: Hetzner token for CPU/RAM (Coolify-only works without it)")
+            if config.discovery.enabled {
+                messages.append("Add Hetzner token + Save — needed for non-Coolify servers (data, search, llm)")
+            } else {
+                messages.append("Optional: Hetzner token for CPU/RAM and IP enrichment")
+            }
+        } else if config.discovery.enabled, cache.hetznerHosts.isEmpty {
+            messages.append("Hetzner token set but no hosts returned — check token project/permissions")
         }
-        return OperatorHints(messages: messages)
+
+        return OperatorHints(messages: messages, discoverySummary: discoverySummary)
+    }
+
+    private func buildDiscoverySummary(snapshotCount: Int) -> String? {
+        let coolifyCount = cache.coolifyServers.count
+        let hetznerCount = cache.hetznerHosts.count
+        let resolvedCount = resolvedServers.count
+        guard coolifyCount > 0 || hetznerCount > 0 || resolvedCount > 0 else { return nil }
+        if snapshotCount != resolvedCount {
+            return "Showing \(snapshotCount) of \(resolvedCount) — Coolify \(coolifyCount), Hetzner \(hetznerCount)"
+        }
+        return "Discovered \(resolvedCount) server(s) — Coolify \(coolifyCount), Hetzner \(hetznerCount)"
     }
 
     /// HTTPS Coolify (e.g. Coolify Cloud) is reachable without Tailscale.
@@ -236,15 +358,32 @@ public actor PulseEngine {
 
     private func buildSnapshot(now: Date) -> ProductionSnapshot {
         var serverSnapshots: [ServerSnapshot] = []
-        for serverConfig in config.servers {
-            let endpointChecks = cache.endpointChecksByServer[serverConfig.id] ?? []
-            let privateProbes = cache.privateProbesByServer[serverConfig.id] ?? []
-            let containers = cache.containersByServerName[serverConfig.hetznerServerName] ?? []
-            let coolifyReachable = CoolifyMapper.matchServer(
-                configName: serverConfig.hetznerServerName,
-                coolifyServers: cache.coolifyServers
-            )?.isReachable
-            let metrics = cache.metricsByServerName[serverConfig.hetznerServerName]
+        var seenIDs = Set<String>()
+        for server in resolvedServers {
+            guard !seenIDs.contains(server.id) else { continue }
+            seenIDs.insert(server.id)
+            let serverConfig = server.asServerConfig()
+            let endpointChecks = cache.endpointChecksByServer[server.cacheKey] ?? []
+            let privateProbes = cache.privateProbesByServer[server.cacheKey] ?? []
+            var containers = cache.containersByServerID[server.cacheKey]
+                ?? server.coolifyUUID.flatMap { cache.containersByCoolifyUUID[$0] }
+                ?? []
+            if containers.isEmpty, !server.manualStack.isEmpty {
+                containers = CoolifyMapper.manualContainers(
+                    from: server.manualStack,
+                    endpointChecks: endpointChecks
+                )
+            }
+            let coolifyServer = server.coolifyUUID.flatMap { uuid in
+                cache.coolifyServers.first(where: { $0.uuid == uuid })
+            }
+            let coolifyReachable = coolifyServer?.isReachable
+            let coolifyUsable = coolifyServer?.isUsable
+            let coolifyDomains = cache.domainsByServerID[server.cacheKey]
+                ?? server.coolifyUUID.flatMap { cache.domainsByCoolifyUUID[$0] }
+                ?? []
+            let metrics = cache.metricsByServerName[server.cacheKey]
+                ?? server.hetznerServerName.flatMap { cache.metricsByServerName[$0] }
 
             var snapshot = HealthRollup.serverSnapshot(
                 config: serverConfig,
@@ -258,10 +397,17 @@ public actor PulseEngine {
                 name: snapshot.name,
                 overall: snapshot.overall,
                 coolifyReachable: snapshot.coolifyReachable,
+                coolifyUsable: coolifyUsable,
+                hetznerHostName: server.hetznerServerName,
+                region: server.region.isEmpty ? nil : server.region,
+                privateIP: server.privateIP.isEmpty ? nil : server.privateIP,
+                coolifyDomains: coolifyDomains,
                 containersRunning: snapshot.containersRunning,
                 containersTotal: snapshot.containersTotal,
                 cpuPercent: metrics?.cpuPercent,
                 ramPercent: metrics?.ramPercent,
+                diskMBps: metrics?.diskMBps,
+                netInMbps: metrics?.netInMbps,
                 endpointChecks: snapshot.endpointChecks,
                 privateProbes: snapshot.privateProbes,
                 containers: snapshot.containers

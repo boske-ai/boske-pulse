@@ -27,7 +27,7 @@ struct StatusMenuBarLabel: View {
             Text("Boske")
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
         }
-        .help(tailscaleUp ? "Tailscale connected" : "Tailscale offline — public checks only")
+        .help("Boske Pulse production status")
     }
 
     private var color: Color {

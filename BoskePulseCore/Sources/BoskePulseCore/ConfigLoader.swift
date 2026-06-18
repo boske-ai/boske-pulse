@@ -6,6 +6,27 @@ public enum ConfigLoader {
         case decodeFailed(String)
     }
 
+    public static func applicationSupportConfigURL() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return base.appendingPathComponent("Boske Pulse/boske-production.json", isDirectory: false)
+    }
+
+    public static func defaultConfigURL(bundle: Bundle = .main) -> URL? {
+        let candidates = configCandidateURLs(bundle: bundle)
+        return candidates.first { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    public static func configCandidateURLs(bundle: Bundle = .main) -> [URL] {
+        var urls: [URL] = []
+        urls.append(applicationSupportConfigURL())
+        urls.append(contentsOf: bundledConfigCandidates(mainBundle: bundle))
+        for relative in ["Config/boske-production.json", "Config/boske-production.example.json"] {
+            let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            urls.append(cwd.appendingPathComponent(relative))
+        }
+        return urls
+    }
+
     public static func load(from url: URL) throws -> ProductionConfig {
         guard FileManager.default.fileExists(atPath: url.path) else {
             throw Error.fileNotFound(url.path)
@@ -16,22 +37,6 @@ public enum ConfigLoader {
         } catch {
             throw Error.decodeFailed(error.localizedDescription)
         }
-    }
-
-    public static func defaultConfigURL(bundle: Bundle = .main) -> URL? {
-        for candidate in bundledConfigCandidates(mainBundle: bundle) {
-            if FileManager.default.fileExists(atPath: candidate.path) {
-                return candidate
-            }
-        }
-        for relative in ["Config/boske-production.json", "Config/boske-production.example.json"] {
-            let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            let candidate = cwd.appendingPathComponent(relative)
-            if FileManager.default.fileExists(atPath: candidate.path) {
-                return candidate
-            }
-        }
-        return nil
     }
 
     public static func loadDefault(bundle: Bundle = .main) throws -> ProductionConfig {
