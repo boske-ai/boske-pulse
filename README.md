@@ -104,4 +104,4 @@ Cross-repo infra (Tailscale subnet routes, Coolify migration) lives in the [bosk
 
 ## License
 
-Public repository. Operator use; MIT license under **Boske Community** planned — see [MANIFEST.md](./MANIFEST.md).
+[MIT License](./LICENSE) — Boske Community.
