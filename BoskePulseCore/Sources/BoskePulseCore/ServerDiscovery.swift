@@ -201,9 +201,9 @@ public enum ServerDiscovery {
         if settings.preferCoolify {
             for coolify in coolifyServers {
                 let overlay = matchOverlay(coolifyName: coolify.name, hetznerName: nil, overlays: overlays)
-                let hetzner = matchHetzner(
-                    forCoolifyName: coolify.name,
-                    hetznerAlias: overlay?.match.hetznerName,
+                let hetzner = matchHetznerForEnrichment(
+                    coolify: coolify,
+                    overlay: overlay,
                     hosts: hetznerHosts
                 )
                 if let hetzner { usedHetzner.insert(hetzner.name) }
@@ -273,6 +273,34 @@ public enum ServerDiscovery {
         return hosts.first { namesMatch($0.name, name) }
     }
 
+    /// Links Hetzner metrics/private IP only when it's the same physical host as Coolify.
+    static func matchHetznerForEnrichment(
+        coolify: CoolifyServer,
+        overlay: ServerOverlay?,
+        hosts: [HetznerHostInfo]
+    ) -> HetznerHostInfo? {
+        if let direct = hosts.first(where: { namesMatch($0.name, coolify.name) }) {
+            return direct
+        }
+
+        if let alias = overlay?.match.hetznerName,
+           let host = hosts.first(where: { $0.name == alias || namesMatch($0.name, alias) })
+        {
+            let coolifyIP = normalizedIP(coolify.ip)
+            let hostIP = normalizedIP(host.publicIPv4)
+            if coolifyIP.isEmpty || coolifyIP == hostIP {
+                return host
+            }
+            return nil
+        }
+
+        return hosts.first { namesMatch($0.name, coolify.name) }
+    }
+
+    static func normalizedIP(_ value: String?) -> String {
+        value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
     static func matchCoolify(forHetznerName name: String, servers: [CoolifyServer]) -> CoolifyServer? {
         servers.first { namesMatch($0.name, name) }
     }
@@ -308,7 +336,9 @@ public enum ServerDiscovery {
     ) -> ResolvedServer {
         let displayName = coolify?.name ?? hetzner?.name ?? "unknown"
         let hetznerName = hetzner?.name
-        let publicIP = hetzner?.publicIPv4 ?? coolify?.ip ?? ""
+        let coolifyIP = normalizedIP(coolify?.ip)
+        let hetznerIP = hetzner?.publicIPv4 ?? ""
+        let publicIP = !coolifyIP.isEmpty ? coolifyIP : hetznerIP
         let privateIP = hetzner?.privateIP ?? ""
         let region = hetzner?.region ?? ""
         let ssh = publicIP.isEmpty ? "" : "ssh deploy@\(publicIP)"

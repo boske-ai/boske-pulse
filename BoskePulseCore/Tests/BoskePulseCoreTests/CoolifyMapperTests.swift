@@ -23,15 +23,40 @@ final class CoolifyMapperTests: XCTestCase {
         XCTAssertEqual(tiles.first?.health, .ok)
     }
 
-    func testMapsRunningUnknownToWarn() {
+    func testMapsRunningUnknownToOk() {
         let parsed = CoolifyMapper.parseStatus("running:unknown")
         XCTAssertEqual(parsed.baseState, "running")
         XCTAssertEqual(parsed.healthDetail, "unknown")
-        XCTAssertEqual(parsed.health, .warn)
+        XCTAssertEqual(parsed.health, .ok)
+
+        let tiles = CoolifyMapper.containers(from: [
+            CoolifyResource(uuid: "1", name: "site", type: "application", status: "running:unknown")
+        ])
+        XCTAssertEqual(tiles.first?.health, .ok)
+        XCTAssertEqual(tiles.first?.uncertainHealth, true)
     }
 
     func testMapsDegradedUnhealthyToWarn() {
         let parsed = CoolifyMapper.parseStatus("degraded:unhealthy")
+        XCTAssertEqual(parsed.health, .warn)
+    }
+
+    func testMapsApplicationRunningUnknownToOk() {
+        let parsed = CoolifyMapper.parseStatus("application running:unknown")
+        XCTAssertEqual(parsed.baseState, "running")
+        XCTAssertEqual(parsed.healthDetail, "unknown")
+        XCTAssertEqual(parsed.health, .ok)
+
+        let tiles = CoolifyMapper.containers(from: [
+            CoolifyResource(uuid: "1", name: "canopy", type: "application", status: "application running:unknown")
+        ])
+        XCTAssertEqual(tiles.first?.health, .ok)
+        XCTAssertEqual(tiles.first?.uncertainHealth, true)
+    }
+
+    func testMapsServiceDegradedToWarn() {
+        let parsed = CoolifyMapper.parseStatus("service degraded:unhealthy")
+        XCTAssertEqual(parsed.baseState, "degraded")
         XCTAssertEqual(parsed.health, .warn)
     }
 
@@ -94,6 +119,18 @@ final class CoolifyMapperTests: XCTestCase {
         XCTAssertEqual(tiles.first?.state, "running")
         XCTAssertEqual(tiles.last?.health, .skipped)
         XCTAssertEqual(tiles.last?.state, "compose")
+    }
+
+    func testMatchCoolifyServerByHetznerIP() {
+        let servers = [
+            CoolifyServer(uuid: "s", name: "example-search-01", ip: "203.0.113.34", isReachable: true, isUsable: true)
+        ]
+        let match = CoolifyMapper.matchCoolifyServer(
+            hetznerName: "example-search-01",
+            publicIPv4: "203.0.113.34",
+            coolifyServers: servers
+        )
+        XCTAssertEqual(match?.uuid, "s")
     }
 }
 

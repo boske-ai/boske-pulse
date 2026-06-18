@@ -164,24 +164,49 @@ final class ServerDiscoveryTests: XCTestCase {
         XCTAssertEqual(resolved.first?.privateProbes.count, 1)
     }
 
-    func testOverlayLinksMismatchedCoolifyAndHetznerNames() {
+    func testOverlayLinksMismatchedCoolifyAndHetznerNamesWhenSameIP() {
         let config = discoveryConfig(overlays: [
             ServerOverlay(
-                match: ServerMatch(coolifyName: "portfolio-sites", hetznerName: "example-website"),
-                role: "Websites"
+                match: ServerMatch(coolifyName: "example-app-01", hetznerName: "examp-app-01"),
+                role: "Cloud API"
             )
         ])
-        let coolify = [CoolifyServer(uuid: "c1", name: "portfolio-sites", isReachable: true, isUsable: true)]
+        let coolify = [
+            CoolifyServer(uuid: "c1", name: "example-app-01", ip: "203.0.113.10", isReachable: true, isUsable: true)
+        ]
         let hetzner = [
-            HetznerHostInfo(id: 1, name: "example-website", publicIPv4: "203.0.113.20", privateIP: "10.99.0.3", region: "hel1")
+            HetznerHostInfo(id: 1, name: "examp-app-01", publicIPv4: "203.0.113.10", privateIP: "10.99.0.6", region: "fsn1")
         ]
 
         let resolved = ServerDiscovery.resolve(config: config, coolifyServers: coolify, hetznerHosts: hetzner)
 
         XCTAssertEqual(resolved.count, 1)
-        XCTAssertEqual(resolved.first?.hetznerServerName, "example-website")
-        XCTAssertEqual(resolved.first?.role, "Websites")
-        XCTAssertEqual(resolved.first?.publicIPv4, "203.0.113.20")
+        XCTAssertEqual(resolved.first?.hetznerServerName, "examp-app-01")
+        XCTAssertEqual(resolved.first?.publicIPv4, "203.0.113.10")
+        XCTAssertEqual(resolved.first?.region, "fsn1")
+    }
+
+    func testCanopyKeepsCoolifyIPWhenOverlayAliasIsDifferentHost() {
+        let config = discoveryConfig(overlays: [
+            ServerOverlay(
+                match: ServerMatch(coolifyName: "portfolio-sites", hetznerName: "example-website"),
+                role: "Canopy portfolio"
+            )
+        ])
+        let coolify = [
+            CoolifyServer(uuid: "c1", name: "portfolio-sites", ip: "203.0.113.30", isReachable: true, isUsable: true)
+        ]
+        let hetzner = [
+            HetznerHostInfo(id: 1, name: "example-website", publicIPv4: "203.0.113.20", privateIP: "10.99.0.3", region: "hel1")
+        ]
+
+        let resolved = ServerDiscovery.resolve(config: config, coolifyServers: coolify, hetznerHosts: hetzner)
+        let canopy = resolved.first { $0.name == "portfolio-sites" }
+
+        XCTAssertEqual(resolved.count, 2)
+        XCTAssertEqual(canopy?.publicIPv4, "203.0.113.30")
+        XCTAssertNil(canopy?.hetznerServerName)
+        XCTAssertEqual(canopy?.region, "")
     }
 
     private func discoveryConfig(

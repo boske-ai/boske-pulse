@@ -33,3 +33,17 @@ extension View {
         modifier(CopyOnClickModifier(value: value))
     }
 }
+
+/// Short label that copies its value on click (IP, SSH, URLs, etc.).
+struct CopyableValue: View {
+    let text: String
+    var font: Font = .caption2
+    var color: Color = BoskeTheme.muted
+
+    var body: some View {
+        Text(text)
+            .font(font)
+            .foregroundStyle(color)
+            .copyOnClick(text)
+    }
+}

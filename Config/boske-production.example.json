@@ -11,7 +11,7 @@
   "servers": [],
   "serverOverlays": [
     {
-      "match": { "coolifyName": "portfolio-sites", "hetznerName": "example-website" },
+      "match": { "coolifyName": "portfolio-sites" },
       "role": "Coolify — canopy portfolio sites"
     },
     {
@@ -49,7 +49,12 @@
       "match": { "hetznerName": "example-search-01" },
       "role": "SearXNG + Valkey + Caddy",
       "publicEndpoints": [
-        { "id": "search", "label": "search.example.dev", "url": "https://search.example.dev/", "expectStatus": 200 }
+        { "id": "search", "label": "search.example.dev", "url": "https://search.example.dev/", "expectStatus": 200, "acceptStatuses": [200, 403] }
+      ],
+      "manualStack": [
+        { "name": "searxng", "role": "searxng", "linkedEndpointID": "search" },
+        { "name": "valkey", "role": "cache" },
+        { "name": "caddy", "role": "proxy" }
       ]
     },
     {
@@ -63,6 +68,10 @@
           "expectStatus": 200,
           "expectBodyContains": "\"ok\":true"
         }
+      ],
+      "manualStack": [
+        { "name": "llm-proxy", "role": "proxy", "linkedEndpointID": "llm-healthz" },
+        { "name": "caddy", "role": "proxy" }
       ]
     }
   ],

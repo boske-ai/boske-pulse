@@ -29,7 +29,9 @@ struct PulseSourceCache: Sendable {
     var containersByCoolifyUUID: [String: [ContainerTile]] = [:]
     var domainsByServerID: [String: [String]] = [:]
     var domainsByCoolifyUUID: [String: [String]] = [:]
+    var linkedCoolifyUUIDByServerID: [String: String] = [:]
     var metricsByServerName: [String: HetznerServerMetrics] = [:]
+    var endpointLastOkAt: [String: Date] = [:]
 
     var lastPublicRefresh: Date?
     var lastCoolifyRefresh: Date?

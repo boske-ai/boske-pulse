@@ -29,19 +29,44 @@ public struct EndpointProbe: Codable, Sendable, Equatable, Identifiable {
     public let url: String
     public let expectStatus: Int
     public let expectBodyContains: String?
+    /// Extra HTTP codes that count as reachable (e.g. 403 when Caddy gates bots but the host is up).
+    public let acceptStatuses: [Int]?
 
     public init(
         id: String,
         label: String,
         url: String,
         expectStatus: Int,
-        expectBodyContains: String? = nil
+        expectBodyContains: String? = nil,
+        acceptStatuses: [Int]? = nil
     ) {
         self.id = id
         self.label = label
         self.url = url
         self.expectStatus = expectStatus
         self.expectBodyContains = expectBodyContains
+        self.acceptStatuses = acceptStatuses
+    }
+
+    public var resolvedAcceptStatuses: [Int] {
+        if let acceptStatuses, !acceptStatuses.isEmpty {
+            return acceptStatuses
+        }
+        return [expectStatus]
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, label, url, expectStatus, expectBodyContains, acceptStatuses
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        label = try container.decode(String.self, forKey: .label)
+        url = try container.decode(String.self, forKey: .url)
+        expectStatus = try container.decode(Int.self, forKey: .expectStatus)
+        expectBodyContains = try container.decodeIfPresent(String.self, forKey: .expectBodyContains)
+        acceptStatuses = try container.decodeIfPresent([Int].self, forKey: .acceptStatuses)
     }
 }
 
@@ -294,13 +319,37 @@ public struct ContainerTile: Codable, Sendable, Equatable, Identifiable {
     public let state: String
     public let image: String?
     public let health: CheckStatus
+    /// Coolify reported running:unknown — show a note, not a failure.
+    public let uncertainHealth: Bool
 
-    public init(id: String, name: String, state: String, image: String? = nil, health: CheckStatus) {
+    public init(
+        id: String,
+        name: String,
+        state: String,
+        image: String? = nil,
+        health: CheckStatus,
+        uncertainHealth: Bool = false
+    ) {
         self.id = id
         self.name = name
         self.state = state
         self.image = image
         self.health = health
+        self.uncertainHealth = uncertainHealth
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, state, image, health, uncertainHealth
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        state = try container.decode(String.self, forKey: .state)
+        image = try container.decodeIfPresent(String.self, forKey: .image)
+        health = try container.decode(CheckStatus.self, forKey: .health)
+        uncertainHealth = try container.decodeIfPresent(Bool.self, forKey: .uncertainHealth) ?? false
     }
 }
 
