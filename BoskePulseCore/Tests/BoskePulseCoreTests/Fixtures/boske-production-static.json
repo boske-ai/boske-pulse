@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "privateNetwork": "boske-net",
+  "privateNetworkCIDR": "10.0.0.0/16",
+  "appGroupIdentifier": "group.test",
+  "discovery": { "enabled": false },
+  "servers": [
+    {
+      "id": "boske-website",
+      "name": "boske-website",
+      "role": "Website",
+      "hetznerServerName": "boske-website",
+      "publicIPv4": "62.238.1.236",
+      "privateIP": "10.0.0.3",
+      "region": "hel1",
+      "coolifyManaged": true,
+      "publicEndpoints": [
+        { "id": "website", "label": "boske.dev", "url": "https://boske.dev/", "expectStatus": 200 }
+      ],
+      "links": {
+        "hetzner": "https://console.hetzner.cloud/",
+        "ssh": "ssh root@62.238.1.236"
+      }
+    }
+  ],
+  "coolify": { "dashboardPath": "/", "apiPath": "/api/v1" },
+  "alerts": { "debounceSeconds": 300, "flapIgnoreSeconds": 120, "telegramEnabled": false },
+  "polling": { "publicHealthSeconds": 30, "coolifySeconds": 60, "hetznerSeconds": 120, "privateProbeSeconds": 60 }
+}

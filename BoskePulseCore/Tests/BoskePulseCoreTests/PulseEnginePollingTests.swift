@@ -30,7 +30,7 @@ final class PulseRefreshTimingTests: XCTestCase {
 }
 
 final class PulseEnginePollingTests: XCTestCase {
-    func testOperatorHintsWhenTailscaleOffline() async {
+    func testOperatorHintsWhenTailscaleOfflineWithoutPrivateProbes() async {
         let config = try! ConfigLoader.load(from: exampleConfigURL())
         let engine = PulseEngine(
             config: config,
@@ -39,7 +39,8 @@ final class PulseEnginePollingTests: XCTestCase {
         )
         _ = await engine.refresh()
         let hints = await engine.operatorHints
-        XCTAssertTrue(hints.messages.contains(where: { $0.contains("private probes paused") }))
+        XCTAssertFalse(hints.messages.contains(where: { $0.contains("private probes paused") }))
+        XCTAssertTrue(hints.messages.contains(where: { $0.contains("auto-discovered") }))
     }
 
     func testCoolifyCloudReachableWithoutTailscale() {
