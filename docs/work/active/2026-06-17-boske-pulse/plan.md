@@ -1,13 +1,13 @@
 # Plan: Boske Pulse v1
 
-**Rule:** operator tooling only; not shipped in Boske desktop/website bundles.
+**Rule:** operator tooling only; not shipped in customer product bundles.
 
 ---
 
 ## Phase P0 — Buildable on Mac (app) **← current**
 
 - [x] Repo scaffold + `BoskePulseCore` with health rollup tests
-- [x] `Config/boske-production.example.json` topology
+- [x] `Config/boske-production.example.json` topology (placeholder hosts)
 - [x] `project.yml` + `make setup`
 - [x] `PulseEngine` — public health, Coolify, Hetzner, private probes, alerts
 - [x] Menu bar UI + Settings (Keychain) + WidgetKit extension
@@ -22,40 +22,40 @@
 
 ## Phase P1 — Tailscale mesh (ops)
 
-> Tracked in boske monorepo infra work. Pulse depends on this for Coolify + private probes.
+> Pulse depends on Tailscale for Coolify API access and private probes.
 
-### 1.1 Install on all Hetzner VMs
+### 1.1 Install on all VMs
 
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
 tailscale up --advertise-tags=tag:your-ops
 ```
 
-### 1.2 Subnet routing on `example-website`
+### 1.2 Subnet routing on the gateway host
 
 ```bash
 tailscale up --advertise-routes=10.99.0.0/16 --accept-routes
 ```
 
-Approve `10.99.0.0/16` in Tailscale admin.
+Approve your private CIDR in Tailscale admin.
 
 ### 1.3 Mac
 
 - Tailscale installed; same tailnet
-- ACL: Mac → `tag:your-ops` ports 443, 5433, 8000
+- ACL: Mac → `tag:your-ops` ports 443, 5433, 8000 (adjust for your stack)
 
-**Quality gate:** From Mac: `nc -zv 10.99.0.2 5433` succeeds; Coolify API on tailnet URL.
+**Quality gate:** From Mac: private TCP probe succeeds; Coolify API reachable on tailnet URL.
 
 ---
 
 ## Phase P2 — Coolify migration (ops)
 
-| Server | Compose source (boske repo) |
-|--------|----------------------------|
-| `example-search-01` | `infra/docker/searxng/docker-compose.yml` |
-| `example-llm-01` | `infra/docker/llm-proxy/` |
+| Server role | Typical compose source |
+|-------------|------------------------|
+| Search host | Your search stack `docker-compose.yml` |
+| LLM host | Your inference proxy compose |
 
-**Quality gate:** All four servers in Coolify API; smoke script passes.
+**Quality gate:** All target hosts appear in Coolify API; smoke checks pass.
 
 ---
 
@@ -69,13 +69,12 @@ Approve `10.99.0.0/16` in Tailscale admin.
 | Coolify API | 60s | Yes |
 | Hetzner metrics | 120s | No |
 
-### Health rules (smoke parity)
+### Health rules
 
 | Check | Green | Red |
 |-------|-------|-----|
-| `https://example.dev/` | HTTP 200 | else |
-| `https://llm.example.dev/healthz` | body contains `"ok":true` | else |
-| `https://search.example.dev/` | HTTP 200 | else |
+| Configured public URLs | HTTP 200 (or configured accept list) | else |
+| LLM health endpoint | body contains expected substring | else |
 | Coolify server | `is_reachable` | false |
 | Critical containers | running + healthy | down |
 
@@ -116,24 +115,16 @@ Approve `10.99.0.0/16` in Tailscale admin.
 
 - [x] TCP probe via `PrivateNetworkProber`
 - [x] Skipped state when Tailscale offline
-- [x] Licensing PG row visible in menu bar UI
+- [x] Private probe rows visible in menu bar UI
 - [x] Degraded badge when Tailscale down (public checks only)
 
 ---
 
 ## Definition of done (v1)
 
-- [ ] All four servers in Coolify; boske smoke script PASS
+- [ ] All target hosts in Coolify; smoke checks PASS
 - [ ] Mac menu bar shows live status; Coolify/Hetzner/SSH links work
 - [ ] Widget shows topology snapshot
 - [ ] Telegram + macOS alert on sustained red
 - [ ] Tokens only in Keychain
-- [ ] Example config scrubbed before any public release
-
----
-
-## Related (boske monorepo)
-
-- `infra/HETZNER.md` — topology source of truth
-- `tools/scripts/smoke/cloud-ai-prod-smoke.sh` — health parity reference
-- `docs/work/active/2026-06-17-infra-reorg-and-scaling/` — Tailscale + Coolify ops
+- [x] Example config uses placeholder topology only

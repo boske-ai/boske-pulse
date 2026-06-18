@@ -6,7 +6,7 @@ final class ServerDiscoveryTests: XCTestCase {
         let config = discoveryConfig(overlays: [
             ServerOverlay(
                 match: ServerMatch(coolifyName: "app-01", hetznerName: "example-app-01"),
-                role: "Cloud API",
+                role: "Application API",
                 publicEndpoints: [
                     EndpointProbe(id: "app", label: "app", url: "https://app.example.dev/api/health", expectStatus: 200)
                 ]
@@ -29,7 +29,7 @@ final class ServerDiscoveryTests: XCTestCase {
 
         XCTAssertEqual(resolved.count, 2)
         let app = resolved.first { $0.coolifyServerName == "app-01" }
-        XCTAssertEqual(app?.role, "Cloud API")
+        XCTAssertEqual(app?.role, "Application API")
         XCTAssertEqual(app?.publicEndpoints.count, 1)
         XCTAssertEqual(app?.hetznerServerName, "example-app-01")
         XCTAssertEqual(app?.publicIPv4, "203.0.113.10")
@@ -89,8 +89,7 @@ final class ServerDiscoveryTests: XCTestCase {
 
     func testNamesMatchUsesTokenBoundaries() {
         XCTAssertTrue(ServerDiscovery.namesMatch("example-app-01", "app-01"))
-        XCTAssertTrue(ServerDiscovery.namesMatch("examp-app-01", "example-app-01"))
-        XCTAssertFalse(ServerDiscovery.namesMatch("example-search-01", "boske"))
+        XCTAssertFalse(ServerDiscovery.namesMatch("example-search-01", "example"))
         XCTAssertFalse(ServerDiscovery.namesMatch("portfolio-sites", "example-website"))
     }
 
@@ -98,14 +97,14 @@ final class ServerDiscoveryTests: XCTestCase {
         let config = discoveryConfig(overlays: [
             ServerOverlay(
                 match: ServerMatch(coolifyName: "portfolio-sites", hetznerName: "example-website"),
-                role: "Canopy",
+                role: "Portfolio",
                 publicEndpoints: [
-                    EndpointProbe(id: "canopy", label: "canopy.example", url: "https://canopy.example/", expectStatus: 200)
+                    EndpointProbe(id: "portfolio", label: "portfolio.example", url: "https://portfolio.example/", expectStatus: 200)
                 ]
             ),
             ServerOverlay(
                 match: ServerMatch(coolifyName: "example-website", hetznerName: "example-website"),
-                role: "Boske site"
+                role: "Marketing site"
             )
         ])
         let coolify = [
@@ -118,18 +117,18 @@ final class ServerDiscoveryTests: XCTestCase {
 
         let resolved = ServerDiscovery.resolve(config: config, coolifyServers: coolify, hetznerHosts: hetzner)
 
-        let canopy = resolved.first { $0.coolifyServerName == "portfolio-sites" }
+        let portfolio = resolved.first { $0.coolifyServerName == "portfolio-sites" }
         let website = resolved.first { $0.coolifyServerName == "example-website" }
-        XCTAssertEqual(canopy?.publicEndpoints.count, 1)
-        XCTAssertEqual(canopy?.publicEndpoints.first?.label, "canopy.example")
+        XCTAssertEqual(portfolio?.publicEndpoints.count, 1)
+        XCTAssertEqual(portfolio?.publicEndpoints.first?.label, "portfolio.example")
         XCTAssertTrue(website?.publicEndpoints.isEmpty ?? false)
     }
 
-    func testBoskaHetznerHostMatchesBoskeAppCoolifyServer() {
+    func testOverlayLinksMismatchedCoolifyAndHetznerNamesViaConfig() {
         let config = discoveryConfig(overlays: [
             ServerOverlay(
                 match: ServerMatch(coolifyName: "example-app-01", hetznerName: "examp-app-01"),
-                role: "Cloud API",
+                role: "Application API",
                 publicEndpoints: [
                     EndpointProbe(id: "app", label: "app", url: "https://app.example.dev/api/health", expectStatus: 200)
                 ]
@@ -168,7 +167,7 @@ final class ServerDiscoveryTests: XCTestCase {
         let config = discoveryConfig(overlays: [
             ServerOverlay(
                 match: ServerMatch(coolifyName: "example-app-01", hetznerName: "examp-app-01"),
-                role: "Cloud API"
+                role: "Application API"
             )
         ])
         let coolify = [
@@ -186,11 +185,11 @@ final class ServerDiscoveryTests: XCTestCase {
         XCTAssertEqual(resolved.first?.region, "fsn1")
     }
 
-    func testCanopyKeepsCoolifyIPWhenOverlayAliasIsDifferentHost() {
+    func testPortfolioKeepsCoolifyIPWhenOverlayAliasIsDifferentHost() {
         let config = discoveryConfig(overlays: [
             ServerOverlay(
                 match: ServerMatch(coolifyName: "portfolio-sites", hetznerName: "example-website"),
-                role: "Canopy portfolio"
+                role: "Portfolio sites"
             )
         ])
         let coolify = [
@@ -201,12 +200,12 @@ final class ServerDiscoveryTests: XCTestCase {
         ]
 
         let resolved = ServerDiscovery.resolve(config: config, coolifyServers: coolify, hetznerHosts: hetzner)
-        let canopy = resolved.first { $0.name == "portfolio-sites" }
+        let portfolio = resolved.first { $0.name == "portfolio-sites" }
 
         XCTAssertEqual(resolved.count, 2)
-        XCTAssertEqual(canopy?.publicIPv4, "203.0.113.30")
-        XCTAssertNil(canopy?.hetznerServerName)
-        XCTAssertEqual(canopy?.region, "")
+        XCTAssertEqual(portfolio?.publicIPv4, "203.0.113.30")
+        XCTAssertNil(portfolio?.hetznerServerName)
+        XCTAssertEqual(portfolio?.region, "")
     }
 
     private func discoveryConfig(
@@ -224,7 +223,7 @@ final class ServerDiscoveryTests: XCTestCase {
         )
     }
 
-    func testResolvesUserProductionTopology() {
+    func testResolvesExampleConfigTopology() {
         let config = try! ConfigLoader.load(from: exampleConfigURL())
         let coolify = [
             "example-app-01", "example-data-01", "example-llm-01", "example-search-01", "example-website", "portfolio-sites"

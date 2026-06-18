@@ -9,7 +9,7 @@ Repository: [github.com/boske-ai/boske-pulse](https://github.com/boske-ai/boske-
 
 Boske Pulse provides a local view of server health, container status, VM metrics, and private-network reachability. API credentials are stored in the macOS Keychain only.
 
-Without configured tokens, the app runs public HTTP smoke checks (`example.dev`, `app.example.dev`, and similar endpoints). Configure Coolify and Hetzner tokens in Settings to enable container status and host metrics.
+Without configured tokens, the app runs public HTTP smoke checks defined in your config (the committed example uses placeholder URLs such as `example.dev`). Configure Coolify and Hetzner tokens in Settings to enable container status and host metrics.
 
 ## Capabilities
 

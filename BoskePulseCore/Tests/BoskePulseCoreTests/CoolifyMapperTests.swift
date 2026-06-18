@@ -48,7 +48,7 @@ final class CoolifyMapperTests: XCTestCase {
         XCTAssertEqual(parsed.health, .ok)
 
         let tiles = CoolifyMapper.containers(from: [
-            CoolifyResource(uuid: "1", name: "canopy", type: "application", status: "application running:unknown")
+            CoolifyResource(uuid: "1", name: "portfolio", type: "application", status: "application running:unknown")
         ])
         XCTAssertEqual(tiles.first?.health, .ok)
         XCTAssertEqual(tiles.first?.uncertainHealth, true)
@@ -108,8 +108,8 @@ final class CoolifyMapperTests: XCTestCase {
     func testManualContainersLinksEndpointHealthToAPI() {
         let tiles = CoolifyMapper.manualContainers(
             from: [
-                ManualStackService(name: "boske-app-api", role: "api", linkedEndpointID: "app"),
-                ManualStackService(name: "boske-app-redis", role: "redis")
+                ManualStackService(name: "example-app-api", role: "api", linkedEndpointID: "app"),
+                ManualStackService(name: "example-app-redis", role: "redis")
             ],
             endpointChecks: [
                 EndpointCheckResult(id: "app", label: "app.example.dev", status: .ok, latencyMs: 42)

@@ -17,5 +17,9 @@ DerivedData/
 
 # Secrets
 *.pem
+*.p12
+*.mobileprovision
+*.cer
 .env
 .env.*
+Config/boske-production.*.local.json

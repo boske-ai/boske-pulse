@@ -47,7 +47,7 @@ struct SettingsView: View {
             }
 
             Section("Hetzner Cloud (required for non-Coolify servers)") {
-                Text("Needed to discover example-data-01, example-search-01, example-llm-01, etc. Click Save to Keychain after entering the token.")
+                Text("Needed to discover Hetzner hosts that are not managed by Coolify (for example data or search nodes). Save to Keychain after entering the token.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 SecureField("Read-only API token", text: $model.hetznerToken)

@@ -13,23 +13,24 @@
 
 ## Ops blockers (P1–P2)
 
-- [ ] Tailscale on all 4 Hetzner VMs
-- [ ] Subnet route `10.99.0.0/16` approved
+- [ ] Tailscale on all production VMs
+- [ ] Private subnet route approved in Tailscale admin
 - [ ] Coolify API reachable from Mac via tailnet
-- [ ] Search + LLM migrated into Coolify
+- [ ] All target hosts onboarded into Coolify
 
 ## App polish (P3–P6)
 
 - [x] Staggered poll intervals (health 30s / Coolify 60s / Hetzner 120s)
-- [x] Private probe row in menu for `example-data-01` PG
+- [x] Private probe row in menu bar UI
 - [x] Notification categories + mute action
 - [x] Per-container rows in menu bar UI
 - [x] Settings connection test buttons (Coolify + Hetzner)
 - [ ] Widget verified with signed App Group
 - [ ] End-to-end alert test (sustained red → Mac + Telegram)
 
-## Before OSS (later)
+## Before OSS
 
-- [ ] Scrub real IPs from `Config/boske-production.example.json`
-- [ ] Add MIT `LICENSE`
-- [ ] Document under Boske Community on `example.dev`
+- [x] Scrub real IPs from `Config/boske-production.example.json`
+- [x] Add MIT `LICENSE`
+- [ ] Confirm no secrets in git history (`gitleaks detect`)
+- [ ] Document under Boske Community

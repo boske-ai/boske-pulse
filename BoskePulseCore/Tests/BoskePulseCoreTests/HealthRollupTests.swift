@@ -141,7 +141,7 @@ final class HealthRollupTests: XCTestCase {
             privateProbes: [],
             coolifyReachable: true,
             containers: [
-                ContainerTile(id: "1", name: "licensing-pg", state: "degraded:unhealthy", health: .warn),
+                ContainerTile(id: "1", name: "postgres", state: "degraded:unhealthy", health: .warn),
             ]
         )
         XCTAssertEqual(snapshot.overall, .healthy)

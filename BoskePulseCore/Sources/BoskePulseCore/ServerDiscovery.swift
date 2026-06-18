@@ -249,9 +249,8 @@ public enum ServerDiscovery {
         }
     }
 
-    /// Normalizes known host naming drift (e.g. Hetzner typo `examp-app-01`).
     static func normalizedHostName(_ name: String) -> String {
-        name.lowercased().replacingOccurrences(of: "boska-", with: "boske-")
+        name.lowercased()
     }
 
     static func namesMatch(_ a: String, _ b: String) -> Bool {

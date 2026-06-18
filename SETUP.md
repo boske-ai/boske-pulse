@@ -6,22 +6,22 @@ See **[LOCAL.md](./LOCAL.md)** for build and run on Mac.
 
 | Item | Value |
 |------|-------|
-| **GitHub** | [boske-ai/boske-pulse](https://github.com/boske-ai/boske-pulse) (private) |
-| **Disk path** | `~/src/boske-pulse` |
-| **Category** | Boske operator tool (not a Canopy Studio consumer app) |
+| **GitHub** | [boske-ai/boske-pulse](https://github.com/boske-ai/boske-pulse) (public) |
+| **Category** | Operator tooling for Hetzner + Coolify monitoring |
 
-## First-time remote (maintainers)
+## First-time clone
 
 ```bash
-cd ~/src/boske-pulse
-gh repo create boske-ai/boske-pulse --private --source=. --remote=origin --push
+git clone git@github.com:boske-ai/boske-pulse.git
+cd boske-pulse
+make setup
 ```
 
-## Open-source checklist (later)
+Copy `Config/boske-production.example.json` to `Config/boske-production.json` (or run `make setup`, which does this automatically) and edit server overlays for your infrastructure.
 
-Before making the repo public under **Boske Community**:
+## Release checklist
 
-- [ ] Replace real IPs/hostnames in `Config/boske-production.example.json` with placeholders
-- [ ] Confirm no secrets in git history
-- [ ] Add `LICENSE` (MIT)
-- [ ] Document on `example.dev` / Boske Community docs
+- [x] Replace real IPs/hostnames in `Config/boske-production.example.json` with placeholders
+- [x] Add MIT `LICENSE`
+- [ ] Confirm no secrets in git history (run `gitleaks detect` before tagging releases)
+- [ ] Document under Boske Community
