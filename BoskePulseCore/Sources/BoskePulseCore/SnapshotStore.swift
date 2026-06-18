@@ -14,14 +14,15 @@ public struct SnapshotStore: Sendable {
             .appendingPathComponent(fileName)
     }
 
-    public func write(_ snapshot: ProductionSnapshot) throws {
+    public func write(_ snapshot: ProductionSnapshot, widgetSafe: Bool = true) throws {
+        let payload = widgetSafe ? SecurityPolicy.widgetRedactedSnapshot(snapshot) : snapshot
         guard let url = snapshotURL else {
             throw SnapshotStoreError.appGroupUnavailable
         }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(snapshot)
+        let data = try encoder.encode(payload)
         try data.write(to: url, options: .atomic)
     }
 

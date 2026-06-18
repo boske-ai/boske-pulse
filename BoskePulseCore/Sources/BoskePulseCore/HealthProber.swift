@@ -27,7 +27,8 @@ public struct URLSessionHTTPClient: HTTPClient {
             let (data, response) = try await session.data(for: request)
             let latencyMs = Int(Date().timeIntervalSince(started) * 1000)
             let statusCode = (response as? HTTPURLResponse)?.statusCode
-            let body = String(data: data, encoding: .utf8)
+            let capped = data.prefix(SecurityPolicy.maxHTTPBodyBytes)
+            let body = String(data: capped, encoding: .utf8)
             return HTTPProbeResult(statusCode: statusCode, body: body, latencyMs: latencyMs, errorMessage: nil)
         } catch {
             let latencyMs = Int(Date().timeIntervalSince(started) * 1000)
@@ -44,6 +45,18 @@ public struct HealthProber: Sendable {
     }
 
     public func probe(endpoint: EndpointProbe, timeoutSeconds: TimeInterval = 10) async -> EndpointCheckResult {
+        switch SecurityPolicy.probeURLPolicy(for: endpoint.url) {
+        case .block(let reason):
+            return EndpointCheckResult(
+                id: endpoint.id,
+                label: endpoint.label,
+                status: .fail,
+                message: reason
+            )
+        case .allow:
+            break
+        }
+
         guard let url = URL(string: endpoint.url) else {
             return EndpointCheckResult(
                 id: endpoint.id,

@@ -12,17 +12,22 @@ public struct TelegramNotifier: Sendable {
         chatID: String,
         text: String
     ) async throws {
-        var components = URLComponents(string: "https://api.telegram.org/bot\(botToken)/sendMessage")!
-        components.queryItems = [
-            URLQueryItem(name: "chat_id", value: chatID),
-            URLQueryItem(name: "text", value: text),
-            URLQueryItem(name: "disable_web_page_preview", value: "true"),
-        ]
-        guard let url = components.url else {
+        guard let url = URL(string: "https://api.telegram.org/bot\(botToken)/sendMessage") else {
             throw TelegramError.invalidURL
         }
+
+        let payload: [String: Any] = [
+            "chat_id": SecurityPolicy.sanitizedTelegramField(chatID),
+            "text": SecurityPolicy.sanitizedTelegramMessage(text),
+            "disable_web_page_preview": true,
+        ]
+        let body = try JSONSerialization.data(withJSONObject: payload)
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+
         let (_, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, (200 ... 299).contains(http.statusCode) else {
             throw TelegramError.httpStatus((response as? HTTPURLResponse)?.statusCode ?? -1)
@@ -37,14 +42,20 @@ public struct TelegramNotifier: Sendable {
         case .down: emoji = "🔴"
         case .unknown: emoji = "⚪"
         }
-        var lines = ["\(emoji) Boske Pulse — \(snapshot.overall.rawValue.uppercased())", snapshot.smokeSummary]
+        var lines = [
+            "\(emoji) Boske Pulse — \(snapshot.overall.rawValue.uppercased())",
+            SecurityPolicy.sanitizedTelegramField(snapshot.smokeSummary),
+        ]
         for server in snapshot.servers where server.overall != .healthy {
-            lines.append("• \(server.name): \(server.overall.rawValue)")
+            let serverName = SecurityPolicy.sanitizedTelegramField(server.name)
+            lines.append("• \(serverName): \(server.overall.rawValue)")
             for check in server.endpointChecks where check.status == .fail {
-                lines.append("  - \(check.label): \(check.message ?? "fail")")
+                let label = SecurityPolicy.sanitizedTelegramField(check.label)
+                let message = SecurityPolicy.sanitizedTelegramField(check.message ?? "fail")
+                lines.append("  - \(label): \(message)")
             }
         }
-        return lines.joined(separator: "\n")
+        return SecurityPolicy.sanitizedTelegramMessage(lines.joined(separator: "\n"))
     }
 }
 

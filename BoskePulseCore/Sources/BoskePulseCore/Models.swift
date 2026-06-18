@@ -210,7 +210,7 @@ public struct CoolifyConfig: Codable, Sendable, Equatable {
     public static let `default` = CoolifyConfig(dashboardPath: "/", apiPath: "/api/v1")
 
     public func apiBaseURL(host: URL) -> URL {
-        URL(string: apiPath, relativeTo: host) ?? host
+        SecurityPolicy.apiBaseURL(host: host, apiPath: apiPath)
     }
 }
 

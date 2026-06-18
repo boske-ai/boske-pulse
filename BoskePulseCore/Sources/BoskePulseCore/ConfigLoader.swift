@@ -4,6 +4,7 @@ public enum ConfigLoader {
     public enum Error: Swift.Error, Equatable {
         case fileNotFound(String)
         case decodeFailed(String)
+        case invalidConfig(String)
     }
 
     public static func applicationSupportConfigURL() -> URL {
@@ -20,10 +21,12 @@ public enum ConfigLoader {
         var urls: [URL] = []
         urls.append(applicationSupportConfigURL())
         urls.append(contentsOf: bundledConfigCandidates(mainBundle: bundle))
+        #if DEBUG
         for relative in ["Config/boske-production.json", "Config/boske-production.example.json"] {
             let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             urls.append(cwd.appendingPathComponent(relative))
         }
+        #endif
         return urls
     }
 
@@ -33,7 +36,11 @@ public enum ConfigLoader {
         }
         let data = try Data(contentsOf: url)
         do {
-            return try JSONDecoder().decode(ProductionConfig.self, from: data)
+            let config = try JSONDecoder().decode(ProductionConfig.self, from: data)
+            try SecurityPolicy.validate(config)
+            return config
+        } catch let error as SecurityPolicy.ConfigValidationError {
+            throw Error.invalidConfig(String(describing: error))
         } catch {
             throw Error.decodeFailed(error.localizedDescription)
         }

@@ -1,11 +1,19 @@
 import AppKit
+import BoskePulseCore
 import SwiftUI
 
 enum PulseClipboard {
-    static func copy(_ text: String) {
-        guard !text.isEmpty else { return }
+    static func copy(_ text: String, clearAfterSeconds: TimeInterval? = SecurityPolicy.pasteboardClearDelaySeconds) {
+        guard let sanitized = SecurityPolicy.sanitizedClipboardText(text) else { return }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        NSPasteboard.general.setString(sanitized, forType: .string)
+
+        guard let delay = clearAfterSeconds, delay > 0 else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            if NSPasteboard.general.string(forType: .string) == sanitized {
+                NSPasteboard.general.clearContents()
+            }
+        }
     }
 }
 
@@ -23,7 +31,7 @@ private struct CopyOnClickModifier: ViewModifier {
                     copied = false
                 }
             }
-            .help(copied ? "Copied!" : "Click to copy")
+            .help(copied ? "Copied!" : "Click to copy — paste into an SSH client, not Terminal")
             .opacity(copied ? 0.55 : 1)
     }
 }

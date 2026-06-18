@@ -11,7 +11,7 @@ enum ServerCopyFormatter {
         if let ip = config?.publicIPv4, !ip.isEmpty {
             lines.append("ip \(ip)")
         }
-        if let ssh = config?.links.ssh, !ssh.isEmpty {
+        if let ip = config?.publicIPv4, let ssh = SecurityPolicy.sshCommand(host: ip) {
             lines.append(ssh)
         }
         if let cpu = server.cpuPercent {

@@ -2,6 +2,15 @@ import XCTest
 @testable import BoskePulseCore
 
 final class HealthProberTests: XCTestCase {
+    func testProbeBlocksLocalhost() async {
+        let client = MockHTTPClient(result: HTTPProbeResult(statusCode: 200, body: "ok", latencyMs: 10, errorMessage: nil))
+        let prober = HealthProber(client: client)
+        let endpoint = EndpointProbe(id: "web", label: "local", url: "https://localhost/", expectStatus: 200)
+        let result = await prober.probe(endpoint: endpoint)
+        XCTAssertEqual(result.status, .fail)
+        XCTAssertEqual(result.message, "localhost is not allowed")
+    }
+
     func testProbeFailsOnWrongStatus() async {
         let client = MockHTTPClient(result: HTTPProbeResult(statusCode: 500, body: "err", latencyMs: 10, errorMessage: nil))
         let prober = HealthProber(client: client)

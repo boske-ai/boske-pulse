@@ -10,6 +10,12 @@ final class CoolifyMapperTests: XCTestCase {
         XCTAssertEqual(domains, ["a.example", "b.example", "c.example"])
     }
 
+    func testEndpointsFromDomainsSkipsInvalidHostnames() {
+        let endpoints = CoolifyMapper.endpoints(from: ["app.example.dev", "not valid", "evil.example/path"])
+        XCTAssertEqual(endpoints.count, 1)
+        XCTAssertEqual(endpoints.first?.url, "https://app.example.dev/")
+    }
+
     func testEndpointsFromDomainsUsesHTTPSRoot() {
         let endpoints = CoolifyMapper.endpoints(from: ["app.example.dev"])
         XCTAssertEqual(endpoints.first?.url, "https://app.example.dev/")

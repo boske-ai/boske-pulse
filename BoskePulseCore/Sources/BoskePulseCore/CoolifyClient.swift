@@ -12,14 +12,16 @@ public struct CoolifyMapper {
     }
 
     public static func endpoints(from domains: [String]) -> [EndpointProbe] {
-        domains.map { domain in
-            EndpointProbe(
-                id: "coolify:\(domain)",
-                label: domain,
-                url: "https://\(domain)/",
-                expectStatus: 200
-            )
-        }
+        domains
+            .filter { SecurityPolicy.isValidProbeHostname($0) }
+            .map { domain in
+                EndpointProbe(
+                    id: "coolify:\(domain)",
+                    label: domain,
+                    url: "https://\(domain)/",
+                    expectStatus: 200
+                )
+            }
     }
 
     public static func parseStatus(_ rawStatus: String) -> ParsedCoolifyStatus {

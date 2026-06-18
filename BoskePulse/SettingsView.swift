@@ -17,7 +17,10 @@ struct SettingsView: View {
             }
 
             Section {
-                Text("Secrets are stored in macOS Keychain only — never on disk.")
+                Text("API tokens are stored in the macOS Keychain (encrypted on disk, this device only). The app reads them while running to poll your infrastructure.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Copied SSH commands are cleared from the clipboard after one minute. Paste them into an SSH client, not a shell.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

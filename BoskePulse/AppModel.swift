@@ -81,11 +81,16 @@ final class AppModel: ObservableObject {
     }
 
     func saveCredentialsToKeychain() {
-        keychain.save(coolifyBaseURL, account: "coolifyBaseURL")
-        keychain.save(coolifyToken, account: "coolifyToken")
-        keychain.save(hetznerToken, account: "hetznerToken")
-        keychain.save(telegramBotToken, account: "telegramBotToken")
-        keychain.save(telegramChatID, account: "telegramChatID")
+        do {
+            try keychain.save(coolifyBaseURL, account: "coolifyBaseURL")
+            try keychain.save(coolifyToken, account: "coolifyToken")
+            try keychain.save(hetznerToken, account: "hetznerToken")
+            try keychain.save(telegramBotToken, account: "telegramBotToken")
+            try keychain.save(telegramChatID, account: "telegramChatID")
+        } catch {
+            credentialsSaveMessage = "Keychain save failed — try again"
+            return
+        }
         credentialsSaveMessage = "Saved to Keychain"
         coolifyTestResult = nil
         hetznerTestResult = nil
@@ -99,15 +104,16 @@ final class AppModel: ObservableObject {
         defer { isTestingCoolify = false }
 
         guard let base = URL(string: coolifyBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)),
-              !coolifyToken.isEmpty
+              SecurityPolicy.isAllowedCoolifyBaseURL(base),
+              !resolvedCoolifyToken().isEmpty
         else {
-            coolifyTestResult = "Enter Coolify base URL and API token"
+            coolifyTestResult = "Enter a valid HTTPS (or HTTP tailnet) Coolify URL and API token"
             return
         }
 
         let coolifyConfig = config?.coolify ?? .default
         let apiBase = coolifyConfig.apiBaseURL(host: base)
-        let client = LiveCoolifyClient(baseURL: apiBase, token: coolifyToken)
+        let client = LiveCoolifyClient(baseURL: apiBase, token: resolvedCoolifyToken()!)
         do {
             let servers = try await client.listServers()
             let names = servers.map(\.name).sorted().joined(separator: ", ")
@@ -122,12 +128,12 @@ final class AppModel: ObservableObject {
         hetznerTestResult = nil
         defer { isTestingHetzner = false }
 
-        guard !hetznerToken.isEmpty else {
+        guard let token = resolvedHetznerToken() else {
             hetznerTestResult = "Enter Hetzner API token"
             return
         }
 
-        let client = LiveHetznerClient(token: hetznerToken)
+        let client = LiveHetznerClient(token: token)
         do {
             let hosts = try await client.listHosts()
             let names = hosts.map(\.name).sorted().joined(separator: ", ")
@@ -138,7 +144,7 @@ final class AppModel: ObservableObject {
     }
 
     func openCoolify() {
-        if let base = URL(string: coolifyBaseURL) {
+        if let base = URL(string: coolifyBaseURL), SecurityPolicy.isAllowedCoolifyBaseURL(base) {
             NSWorkspace.shared.open(base)
             return
         }
@@ -154,7 +160,9 @@ final class AppModel: ObservableObject {
 
     func copySSH(for serverID: String) {
         guard let server = serverConfig(for: serverID) else { return }
-        PulseClipboard.copy(server.links.ssh)
+        let command = SecurityPolicy.sshCommand(host: server.publicIPv4) ?? validatedSSHCommand(server.links.ssh)
+        guard let command else { return }
+        PulseClipboard.copy(command)
     }
 
     func copyServerSummary(for serverID: String) {
@@ -173,12 +181,12 @@ final class AppModel: ObservableObject {
         } else {
             urlString = "https://console.hetzner.cloud/"
         }
-        guard let url = URL(string: urlString) else { return }
+        guard SecurityPolicy.isAllowedBrowserURL(urlString), let url = URL(string: urlString) else { return }
         NSWorkspace.shared.open(url)
     }
 
     func openEndpoint(_ urlString: String) {
-        guard let url = URL(string: urlString) else { return }
+        guard SecurityPolicy.isAllowedBrowserURL(urlString), let url = URL(string: urlString) else { return }
         NSWorkspace.shared.open(url)
     }
 
@@ -238,12 +246,43 @@ final class AppModel: ObservableObject {
 
     private func currentCredentials() -> PulseCredentials {
         PulseCredentials(
-            coolifyBaseURL: URL(string: coolifyBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)),
-            coolifyToken: coolifyToken.isEmpty ? nil : coolifyToken,
-            hetznerToken: hetznerToken.isEmpty ? nil : hetznerToken,
-            telegramBotToken: telegramBotToken.isEmpty ? nil : telegramBotToken,
-            telegramChatID: telegramChatID.isEmpty ? nil : telegramChatID
+            coolifyBaseURL: URL(string: (keychain.load(account: "coolifyBaseURL") ?? coolifyBaseURL).trimmingCharacters(in: .whitespacesAndNewlines)),
+            coolifyToken: resolvedCoolifyToken(),
+            hetznerToken: resolvedHetznerToken(),
+            telegramBotToken: resolvedTelegramBotToken(),
+            telegramChatID: resolvedTelegramChatID()
         )
+    }
+
+    private func resolvedCoolifyToken() -> String? {
+        tokenValue(field: coolifyToken, account: "coolifyToken")
+    }
+
+    private func resolvedHetznerToken() -> String? {
+        tokenValue(field: hetznerToken, account: "hetznerToken")
+    }
+
+    private func resolvedTelegramBotToken() -> String? {
+        tokenValue(field: telegramBotToken, account: "telegramBotToken")
+    }
+
+    private func resolvedTelegramChatID() -> String? {
+        tokenValue(field: telegramChatID, account: "telegramChatID")
+    }
+
+    private func tokenValue(field: String, account: String) -> String? {
+        let persisted = keychain.load(account: account) ?? ""
+        let value = field.isEmpty ? persisted : field
+        return value.isEmpty ? nil : value
+    }
+
+    private func validatedSSHCommand(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("ssh ") else { return nil }
+        let remainder = trimmed.dropFirst(4)
+        let parts = remainder.split(separator: "@", maxSplits: 1)
+        guard parts.count == 2 else { return nil }
+        return SecurityPolicy.sshCommand(host: String(parts[1]))
     }
 
     private func startPolling() {
@@ -278,10 +317,10 @@ final class AppModel: ObservableObject {
         try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
         try? await UNUserNotificationCenter.current().add(request)
         if config?.alerts.telegramEnabled == true,
-           !telegramBotToken.isEmpty,
-           !telegramChatID.isEmpty
+           let botToken = resolvedTelegramBotToken(),
+           let chatID = resolvedTelegramChatID()
         {
-            try? await TelegramNotifier().send(botToken: telegramBotToken, chatID: telegramChatID, text: message)
+            try? await TelegramNotifier().send(botToken: botToken, chatID: chatID, text: message)
         }
     }
 

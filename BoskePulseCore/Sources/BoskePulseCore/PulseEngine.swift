@@ -360,7 +360,7 @@ public actor PulseEngine {
             if tailscaleUp {
                 var results: [PrivateProbeResult] = []
                 for probe in server.privateProbes {
-                    results.append(await privateProber.probe(probe))
+                    results.append(await privateProber.probe(probe, allowedCIDR: config.privateNetworkCIDR))
                 }
                 cache.privateProbesByServer[server.cacheKey] = results
             } else {

@@ -340,7 +340,9 @@ public enum ServerDiscovery {
         let publicIP = !coolifyIP.isEmpty ? coolifyIP : hetznerIP
         let privateIP = hetzner?.privateIP ?? ""
         let region = hetzner?.region ?? ""
-        let ssh = publicIP.isEmpty ? "" : "ssh deploy@\(publicIP)"
+        let ssh = SecurityPolicy.sshCommand(host: publicIP)
+            ?? SecurityPolicy.sshCommand(host: displayName)
+            ?? ""
         let id: String
         if let coolify {
             id = "coolify:\(coolify.uuid):\(coolify.name)"
@@ -366,7 +368,7 @@ public enum ServerDiscovery {
             manualStack: overlay?.manualStack ?? [],
             links: ServerLinks(
                 hetzner: "https://console.hetzner.cloud/",
-                ssh: ssh.isEmpty ? "ssh deploy@\(displayName)" : ssh
+                ssh: ssh
             ),
             discoveredOnly: overlay == nil
         )
