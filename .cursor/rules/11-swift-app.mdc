@@ -1,0 +1,38 @@
+---
+description: BoskePulse menu bar app — SwiftUI, AppKit, Keychain, dashboard UI
+globs: BoskePulse/**
+alwaysApply: false
+---
+
+# BoskePulse App
+
+macOS menu bar application (`LSUIElement`). SwiftUI + AppKit presenters.
+
+## Key files
+
+| File | Responsibility |
+|------|----------------|
+| `BoskePulseApp.swift` | `@main` — `MenuBarExtra` entry |
+| `AppModel.swift` | ObservableObject hub — engine lifecycle, polling, notifications |
+| `ProductionDashboardView.swift` / `ProductionDashboardViews.swift` | Dashboard layout and tiles |
+| `SettingsView.swift` | Coolify / Hetzner / Telegram credential form |
+| `KeychainService.swift` | Keychain CRUD for tokens |
+| `MenuBarIconRenderer.swift` | Health-colored status icon |
+| `*WindowPresenter.swift` | Compact, production, settings windows |
+
+## Patterns
+
+- Keep orchestration in `AppModel`; delegate domain logic to `BoskePulseCore`.
+- Write snapshots via `SnapshotStore` after each successful poll.
+- Reload widget timelines after snapshot writes.
+- Use `TailscaleCLIReachability` for app-side Tailscale status.
+
+## UI conventions
+
+- Theme constants in `ProductionDashboardViews.swift` (`BoskeTheme`, `PulseTheme`).
+- Copy helpers: `PulseClipboard.swift`, `ServerCopyFormatter.swift`.
+- Do not embed API tokens or secrets in views or view models.
+
+## Signing
+
+Both **BoskePulse** and **BoskePulseWidget** need App Group `group.eu.canopystudio.boske.pulse`.

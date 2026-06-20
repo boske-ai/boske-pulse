@@ -1,0 +1,34 @@
+---
+description: Routes tasks to the correct Boske Pulse implementer subagent
+alwaysApply: true
+---
+
+# Capabilities Routing
+
+When delegating work, spawn the matching subagent from `.cursor/agents/`:
+
+| Task domain | Subagent | Paths |
+|-------------|----------|-------|
+| Planning / scoping | `planner` | whole repo |
+| Engine, APIs, models, tests | `core-implementer` | `BoskePulseCore/**` |
+| Menu bar UI, AppModel, Keychain | `app-implementer` | `BoskePulse/**` |
+| WidgetKit views, timeline | `widget-implementer` | `BoskePulseWidget/**` |
+| Post-change validation | `verifier` | whole repo |
+
+## Detected layout
+
+```
+boske-pulse/
+├── BoskePulseCore/     # Swift Package — shared engine + tests
+├── BoskePulse/         # Menu bar app (SwiftUI)
+├── BoskePulseWidget/   # WidgetKit extension
+├── Config/             # JSON topology (example committed)
+├── scripts/            # setup.sh, render-brand-icons.swift
+├── project.yml         # XcodeGen
+└── docs/work/active/   # Active plan + checklist
+```
+
+## Skills
+
+- `/run-core-tests` — execute `make test`
+- `/add-pulse-feature` — planner → implementers → verifier workflow

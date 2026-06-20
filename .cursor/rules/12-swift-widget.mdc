@@ -1,0 +1,25 @@
+---
+description: BoskePulseWidget — WidgetKit extension reading App Group snapshot
+globs: BoskePulseWidget/**
+alwaysApply: false
+---
+
+# BoskePulseWidget
+
+WidgetKit extension. Reads `ProductionSnapshot` from App Group via `SnapshotStore`.
+
+## Constraints
+
+- Widget must not perform network calls or hold credentials.
+- All data comes from the snapshot JSON written by the main app.
+- Support small, medium, and large families.
+- Timeline refresh policy ~5 minutes; app triggers reload on snapshot update.
+
+## Shared dependency
+
+Import `BoskePulseCore` for `SnapshotStore`, `Models`, and health types only.
+Do not pull in app-only presenters or Keychain code.
+
+## Signing
+
+Requires same App Group entitlement as main app: `group.eu.canopystudio.boske.pulse`.

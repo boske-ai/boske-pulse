@@ -1,0 +1,26 @@
+---
+description: Production topology config schema and example templates
+globs: Config/**
+alwaysApply: false
+---
+
+# Config Topology
+
+| File | Committed | Purpose |
+|------|-----------|---------|
+| `boske-production.example.json` | Yes | Schema template with placeholder hosts |
+| `boske-production.json` | No (gitignored) | Operator local topology |
+
+## Schema sections
+
+- `discovery` — Coolify/Hetzner auto-discovery settings
+- `serverOverlays` — roles, health URLs, manual stacks, private probes
+- `servers` — static server entries
+- `coolify` / `alerts` / `polling` — integration and timing config
+
+## Rules
+
+- Example file must use placeholder URLs (e.g. `example.dev`) and fake IPs.
+- Never embed API tokens — tokens go in Keychain via Settings.
+- When extending schema, update both example JSON and `Models.swift` in core.
+- Add `ConfigLoaderTests` coverage for new config fields.

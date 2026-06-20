@@ -1,0 +1,33 @@
+---
+description: Boske Pulse project guardrails and conventions — always apply
+alwaysApply: true
+---
+
+# Boske Pulse — Project Guardrails
+
+Read `MANIFEST.md` and `AGENTS.md` before making changes.
+
+## Secrets & config
+
+- Never commit `Config/boske-production.json`, tokens, or real production topology.
+- Keep `Config/boske-production.example.json` generic (placeholder hosts only).
+- API credentials belong in Keychain via Settings UI — not in JSON or source.
+
+## Code placement
+
+- Business logic → `BoskePulseCore/` with unit tests in `BoskePulseCore/Tests/`.
+- UI and AppKit glue → `BoskePulse/`.
+- Widget views and timeline → `BoskePulseWidget/`.
+- Do not add external SPM dependencies without explicit approval.
+
+## Swift style
+
+- Use `actor` for `PulseEngine` and other concurrent state holders.
+- Define protocols for API clients and inject test doubles in unit tests.
+- Prefer early returns and explicit error types over silent fallbacks.
+- Run `make test` after core changes.
+
+## Build notes
+
+- `make test` works without Xcode (Linux cloud agents).
+- `make build` / `xcodebuild` require macOS + Xcode 15+.

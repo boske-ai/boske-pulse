@@ -1,0 +1,10 @@
+{
+  "snapshot": "POPULATED_FROM_SETTINGS",
+  "terminals": [],
+  "install": "",
+  "start": "",
+  "build": {
+    "dockerfile": null,
+    "context": "."
+  }
+}

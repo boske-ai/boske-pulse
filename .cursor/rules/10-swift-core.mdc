@@ -1,0 +1,35 @@
+---
+description: BoskePulseCore engine, clients, models, and unit tests
+globs: BoskePulseCore/**
+alwaysApply: false
+---
+
+# BoskePulseCore
+
+Swift Package at `BoskePulseCore/`. Shared by app and widget targets.
+
+## Key modules
+
+| File | Responsibility |
+|------|----------------|
+| `PulseEngine.swift` | Central actor — refresh channels, snapshot assembly, alerts |
+| `ServerDiscovery.swift` | Merge Coolify + Hetzner hosts with `serverOverlays` |
+| `CoolifyClient.swift` / `HetznerClient.swift` | Live clients + mappers; protocol for tests |
+| `HealthProber.swift` / `PrivateNetworkProber.swift` | Public HTTP and Tailscale TCP probes |
+| `HealthRollup.swift` | Per-server and overall health aggregation |
+| `ConfigLoader.swift` / `Models.swift` | JSON config and domain types |
+| `SnapshotStore.swift` | App Group JSON read/write |
+| `AlertDebouncer.swift` / `TelegramNotifier.swift` | Alert pipeline |
+
+## Testing
+
+- Add or update tests in `BoskePulseCore/Tests/BoskePulseCoreTests/`.
+- Use fixtures under `Tests/BoskePulseCoreTests/Fixtures/`.
+- Run: `make test` or `cd BoskePulseCore && swift test`.
+- Mock network via protocol conformances — no live API calls in tests.
+
+## Constraints
+
+- No SwiftUI or AppKit imports in core.
+- No Keychain access in core — use `CredentialsStore` protocol.
+- Polling intervals live in config and `PulseRefreshTiming.swift`.
